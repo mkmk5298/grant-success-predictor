@@ -12,9 +12,12 @@ export default function GoogleAuthButton({ onSuccess, onError }: GoogleAuthButto
   const [isLoading, setIsLoading] = useState(false)
 
   const handleGoogleSignIn = async () => {
+    console.log('🔐 Google sign-in clicked')
     setIsLoading(true)
     
     try {
+      console.log('⚡ Calling auth API at:', '/api/v1/auth/google')
+      
       // For demo: Mock authentication with API call structure
       const response = await fetch('/api/v1/auth/google', {
         method: 'POST',
@@ -26,16 +29,22 @@ export default function GoogleAuthButton({ onSuccess, onError }: GoogleAuthButto
         })
       })
       
+      console.log('📡 Auth API response status:', response.status)
+      
       const data = await response.json()
+      console.log('📋 Auth API response data:', data)
       
       if (data.success) {
+        console.log('✅ Authentication successful:', data.user)
         onSuccess?.(data.user)
       } else {
+        console.error('❌ Authentication failed:', data.error)
         onError?.(data.error || 'Authentication failed')
       }
       
       setIsLoading(false)
     } catch (error) {
+      console.error('💥 Google sign-in error:', error)
       onError?.('Google sign-in failed')
       setIsLoading(false)
     }

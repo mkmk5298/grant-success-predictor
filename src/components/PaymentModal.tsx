@@ -14,9 +14,12 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
   const [isProcessing, setIsProcessing] = useState(false)
 
   const handleSubscribe = async () => {
+    console.log('💳 Subscribe button clicked')
     setIsProcessing(true)
     
     try {
+      console.log('⚡ Calling payments API at:', '/api/v1/payments/create-subscription')
+      
       const response = await fetch('/api/v1/payments/create-subscription', {
         method: 'POST',
         headers: {
@@ -29,20 +32,29 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
         })
       })
       
+      console.log('📡 Payment API response status:', response.status)
+      
       const data = await response.json()
+      console.log('📋 Payment API response data:', data)
       
       if (data.success) {
+        console.log('✅ Payment successful!')
         onSuccess?.()
         onClose()
       } else {
-        console.error('Payment failed:', data.error)
+        console.error('❌ Payment failed:', data.error)
       }
       
       setIsProcessing(false)
     } catch (error) {
-      console.error('Payment processing error:', error)
+      console.error('💥 Payment processing error:', error)
       setIsProcessing(false)
     }
+  }
+
+  const handleCloseClick = () => {
+    console.log('✖️ Payment modal close button clicked')
+    onClose()
   }
 
   const features = [

@@ -144,7 +144,18 @@ export default function DropInAnalyzer() {
   }, [data])
 
   const handleInputChange = (field: keyof AnalysisData, value: string | number | boolean) => {
+    console.log('🔄 Input changed:', field, value)
     setData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleCreateAccount = () => {
+    console.log('✨ Create account clicked')
+    // 계정 생성 로직
+  }
+
+  const handleContinueAsGuest = () => {
+    console.log('👤 Continue as guest clicked')
+    // 게스트 계속 로직
   }
 
   return (
@@ -342,10 +353,16 @@ export default function DropInAnalyzer() {
                       Create a free account to track your applications, get personalized recommendations, and access our grant database.
                     </p>
                     <div className="flex gap-4 justify-center">
-                      <button className="btn-pill btn-gradient text-white px-6 py-3 font-medium">
+                      <button 
+                        onClick={handleCreateAccount}
+                        className="btn-pill btn-gradient text-white px-6 py-3 font-medium"
+                      >
                         Create Free Account
                       </button>
-                      <button className="btn-pill btn-outline text-gray-700 px-6 py-3 font-medium">
+                      <button 
+                        onClick={handleContinueAsGuest}
+                        className="btn-pill btn-outline text-gray-700 px-6 py-3 font-medium"
+                      >
                         Continue as Guest
                       </button>
                     </div>
