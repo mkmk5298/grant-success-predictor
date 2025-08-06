@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { motion } from "framer-motion"
 import { Sparkles, TrendingUp, Target, Database, Brain, Rocket, Upload, AlertCircle, CheckCircle } from "lucide-react"
 import GoogleAuthButton from "@/components/GoogleAuthButton"
+import UploadCounter from "@/components/UploadCounter"
 
 // Dynamically import heavy components
 const DropInAnalyzer = dynamic(
@@ -469,6 +470,14 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+
+              {/* Upload Counter - CRITICAL: Show free uploads remaining */}
+              <UploadCounter 
+                userId={state.user?.id}
+                userEmail={state.user?.email}
+                isSubscribed={false}
+                onLimitReached={() => setState(prev => ({ ...prev, showPaymentModal: true }))}
+              />
 
               {/* Drop Zone */}
               <div 

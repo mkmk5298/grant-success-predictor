@@ -279,22 +279,43 @@ select option:hover {
   background: #f3f4f6 !important;
 }
 
-/* FIX 3: Checkbox/Toggle Label Visibility */
+/* FIX 3: Checkbox/Toggle Label Visibility - NUCLEAR OPTION */
 label {
-  color: #374151 !important; /* gray-700 */
+  color: #111827 !important; /* gray-900 */
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
-input[type="checkbox"] + label,
-input[type="radio"] + label,
-.switch-label,
-.checkbox-label {
-  color: #374151 !important;
+/* FORCE ALL CHECKBOX/RADIO LABELS VISIBLE */
+input[type="checkbox"] + *,
+input[type="radio"] + *,
+input[type="checkbox"] ~ label,
+input[type="radio"] ~ label,
+.checkbox-container label,
+.radio-container label,
+[class*="checkbox"] label,
+[class*="radio"] label,
+[class*="switch"] label,
+[class*="toggle"] label {
+  color: #111827 !important; /* gray-900 */
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
-/* Radix UI checkbox/switch components */
-[data-state="checked"] + span,
-[data-state="unchecked"] + span {
-  color: #374151 !important;
+/* Specific fix for checkboxes with labels */
+label:has(input[type="checkbox"]),
+label:has(input[type="radio"]) {
+  color: #111827 !important;
+}
+
+/* If using Radix/Headless UI */
+[role="checkbox"] + *,
+[role="radio"] + *,
+[role="switch"] + *,
+[data-state="checked"] + *,
+[data-state="unchecked"] + * {
+  color: #111827 !important;
+  opacity: 1 !important;
 }
 
 /* FIX 4: Hide System Status from Public */
@@ -305,13 +326,20 @@ input[type="radio"] + label,
   display: none !important;
 }
 
-/* FIX 5: Stripe Elements Text Visibility */
-.StripeElement {
+/* FIX 5: Stripe Elements Text Visibility - COMPREHENSIVE FIX */
+.StripeElement,
+.stripe-element,
+iframe[name*="stripe"] {
   background: #ffffff !important;
+  color-scheme: light !important;
 }
 
-.StripeElement input {
+.StripeElement input,
+.CardElement input,
+.PaymentElement input,
+[class*="stripe"] input {
   color: #000000 !important;
+  background: #ffffff !important;
 }
 
 .StripeElement--focus {
@@ -320,6 +348,24 @@ input[type="radio"] + label,
 
 .StripeElement--invalid {
   border-color: #ef4444 !important;
+}
+
+/* Fix ALL modal text */
+.modal-content,
+.dialog-content,
+[role="dialog"],
+[class*="modal"],
+[class*="dialog"],
+[class*="popup"] {
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* Force all text in modals to be visible */
+.modal-content *,
+.dialog-content *,
+[role="dialog"] * {
+  color: #111827 !important;
 }
 
 /* Additional form element fixes */

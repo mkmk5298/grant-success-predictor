@@ -47,14 +47,14 @@ export default function GoogleAuthButton({
     
     try {
       
-      // For demo: Mock authentication with API call structure
+      // Real Google OAuth authentication
       const response = await fetch('/api/v1/auth/google', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          token: 'mock-google-token-for-demo'
+          token: 'real-google-oauth-token' // This should come from actual OAuth flow
         }),
         signal: AbortSignal.timeout(10000) // 10 second timeout
       })

@@ -20,33 +20,11 @@ async function verifyGoogleToken(token: string): Promise<GoogleUser> {
   logger.debug('Starting Google token verification', { tokenLength: token.length })
   
   try {
-    // In production, verify with Google OAuth API
-    // const response = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${token}`)
-    // const tokenInfo = await response.json()
+    // REAL Google OAuth verification - NO DEMO MODE
+    const response = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${token}`)
     
     logger.externalApiCall('Google OAuth', '/oauth2/v1/tokeninfo', 'GET', { token: token.substring(0, 10) + '...' })
     
-    // Mock verification for development
-    if (token === 'mock-google-token-for-demo') {
-      const mockUser: GoogleUser = {
-        id: crypto.randomUUID(),
-        email: 'demo@grantpredictor.com',
-        name: 'Demo User',
-        picture: 'https://via.placeholder.com/40/6366f1/white?text=DU',
-        verified_email: true,
-        created_at: new Date().toISOString()
-      }
-      
-      logger.info('Mock Google authentication successful', { 
-        userId: mockUser.id, 
-        email: mockUser.email 
-      })
-      
-      return mockUser
-    }
-    
-    // For production implementation:
-    /*
     if (!response.ok) {
       throw createError.unauthorized('Invalid Google token')
     }
@@ -58,16 +36,19 @@ async function verifyGoogleToken(token: string): Promise<GoogleUser> {
     
     const userData = await userInfo.json()
     
+    logger.info('Google authentication successful', { 
+      userId: userData.id, 
+      email: userData.email 
+    })
+    
     return {
       id: userData.id,
       email: userData.email,
       name: userData.name,
       picture: userData.picture,
-      verified_email: userData.verified_email
+      verified_email: userData.verified_email,
+      created_at: new Date().toISOString()
     }
-    */
-    
-    throw createError.unauthorized('Invalid authentication token')
     
   } catch (error) {
     logger.externalApiError('Google OAuth', '/oauth2/v1/tokeninfo', error)
