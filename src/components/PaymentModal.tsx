@@ -40,46 +40,53 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
     setError(null)
     
     try {
-      
+      // Call the Stripe checkout endpoint
       const response = await fetch('/api/v1/payments/create-subscription', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // Add user headers if available from local storage or context
+          'x-user-id': localStorage.getItem('userId') || '',
+          'x-user-email': localStorage.getItem('userEmail') || '',
+          'x-session-id': localStorage.getItem('sessionId') || ''
         },
-        body: JSON.stringify({
-          priceId: 'price_grant_predictor_pro',
-          customerId: null, // Will be created if needed
-          paymentMethodId: null // Mock payment method
-        }),
         signal: AbortSignal.timeout(30000) // 30 second timeout
       })
-      
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
       
-      const data: PaymentResponse = await response.json()
+      const data = await response.json()
       
-      if (data.success && data.data) {
-        onSuccess?.()
-        onClose()
+      if (data.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url
+      } else if (data.sessionId) {
+        // Alternative: Use Stripe.js to redirect (if loaded)
+        const stripe = (window as any).Stripe
+        if (stripe && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
+          const stripeInstance = stripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+          const { error } = await stripeInstance.redirectToCheckout({ sessionId: data.sessionId })
+          if (error) {
+            throw new Error(error.message)
+          }
+        } else {
+          throw new Error('Stripe checkout URL not provided')
+        }
       } else {
-        const errorMessage = data.error?.message || data.message || 'Payment failed'
-        // Payment failed (removed console.error for production)
-        setError(errorMessage)
+        throw new Error('Invalid response from payment server')
       }
       
     } catch (error) {
-      // Payment processing error (removed console.error for production)
+      // Payment processing error
       const errorMessage = error instanceof Error 
         ? error.message 
         : 'An unexpected error occurred during payment processing'
       setError(errorMessage)
-    } finally {
       setIsProcessing(false)
     }
-  }, [isProcessing, onSuccess, onClose])
+  }, [isProcessing])
 
   const handleCloseClick = useCallback(() => {
     if (isProcessing) return

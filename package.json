@@ -24,7 +24,8 @@
     "test:integration": "jest --testPathPattern=integration",
     "security:audit": "npm audit --audit-level=moderate",
     "bundle-analyze": "ANALYZE=true next build",
-    "pre-deploy": "npm run type-check && npm run lint && npm run test:ci",
+    "pre-deploy": "npm run type-check && npm run lint && npm run test:ci && node scripts/test-critical-features.js",
+    "test:critical": "node scripts/test-critical-features.js",
     "postinstall": "echo 'Run npm run setup:db to initialize database'"
   },
   "dependencies": {

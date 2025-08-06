@@ -167,3 +167,60 @@ h1, h2, h3, h4, h5, h6 {
 .glass p {
   color: rgba(255, 255, 255, 0.8) !important;
 }
+
+/* EMERGENCY PRODUCTION HOTFIX - Text Visibility Crisis Fix */
+/* Fix white background components with invisible text */
+.bg-white,
+[class*="bg-white"] {
+  color: #111827 !important; /* Force dark text on white backgrounds */
+}
+
+.bg-white h1, .bg-white h2, .bg-white h3, .bg-white h4, .bg-white h5, .bg-white h6,
+[class*="bg-white"] h1, [class*="bg-white"] h2, [class*="bg-white"] h3, 
+[class*="bg-white"] h4, [class*="bg-white"] h5, [class*="bg-white"] h6 {
+  color: #111827 !important;
+}
+
+.bg-white p, .bg-white span, .bg-white div,
+[class*="bg-white"] p, [class*="bg-white"] span, [class*="bg-white"] div {
+  color: #374151 !important;
+}
+
+/* Fix input fields on white backgrounds */
+.bg-white input, .bg-white textarea, .bg-white select,
+[class*="bg-white"] input, [class*="bg-white"] textarea, [class*="bg-white"] select {
+  color: #111827 !important;
+  background: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+}
+
+/* Fix buttons on white backgrounds */
+.bg-white button,
+[class*="bg-white"] button {
+  background: #6366f1 !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+/* Override problematic text classes when inside white backgrounds */
+.bg-white .text-white,
+[class*="bg-white"] .text-white {
+  color: #111827 !important;
+}
+
+/* Ensure gray backgrounds have proper text colors */
+.bg-gray-50, .bg-gray-100, .bg-gray-200 {
+  color: #111827 !important;
+}
+
+/* Fix specific components */
+.bg-gray-50 p {
+  color: #374151 !important;
+}
+
+/* Ensure proper text colors for specific text utility classes */
+.text-gray-800 { color: #1f2937 !important; }
+.text-gray-700 { color: #374151 !important; }
+.text-gray-600 { color: #4b5563 !important; }
+.text-gray-500 { color: #6b7280 !important; }
+.text-gray-400 { color: #9ca3af !important; }
