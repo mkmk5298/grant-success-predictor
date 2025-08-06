@@ -7,7 +7,7 @@
   "outputDirectory": ".next",
   "public": false,
   
-  "regions": ["iad1", "sfo1"],
+  
   
   "functions": {
     "app/api/**/*.ts": {
