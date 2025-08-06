@@ -1,0 +1,108 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap');
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  
+  /* DoNotPay Color Variables */
+  --purple: #771cfe;
+  --pink: #ff5b92;
+  --orange: #ffa15c;
+  --dark: #14183b;
+  --accent: #624af2;
+  
+  /* DoNotPay Gradients */
+  --gradient-1: linear-gradient(46deg, #771cfe 0%, #ff5b92 50%, #ffa15c 100%);
+  --gradient-2: linear-gradient(135deg, #771cfe 0%, #ff5b92 100%);
+  --gradient-3: linear-gradient(135deg, #ff5b92 0%, #ffa15c 100%);
+  --gradient-4: linear-gradient(135deg, #624af2 0%, #771cfe 100%);
+  
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.18);
+  
+  /* Shadows */
+  --shadow-glow: 0 0 50px rgba(119, 28, 254, 0.5);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: 'Poppins', system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism utility */
+.glass {
+  backdrop-filter: blur(16px) saturate(180%);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: var(--gradient-1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* DoNotPay-style animated background */
+.animated-bg {
+  background: linear-gradient(46deg, #771cfe, #ff5b92, #ffa15c);
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* DoNotPay-style buttons */
+.btn-pill {
+  border-radius: 100px;
+  padding: 12px 24px;
+  font-weight: 500;
+}
+
+.btn-gradient {
+  background: var(--gradient-1);
+  border: none;
+  color: white;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+/* DoNotPay-style rounded containers */
+.rounded-donotpay {
+  border-radius: 45px;
+}
+
+.rounded-donotpay-lg {
+  border-radius: 100px;
+}
+
+/* Particle container */
+.particles {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}

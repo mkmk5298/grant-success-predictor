@@ -1,0 +1,16 @@
+# Grant Predictor Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Database
+psycopg2-binary==2.9.9
+
+# AI/ML
+openai==1.3.0
+
+# Environment & Configuration
+python-dotenv==1.0.0
+
+# Optional but recommended
+requests==2.31.0
+numpy==1.24.3
+pandas==2.0.3
