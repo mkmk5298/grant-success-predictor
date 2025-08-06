@@ -1,11 +1,20 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, Suspense } from "react"
+import dynamic from 'next/dynamic'
 import { motion, AnimatePresence } from "framer-motion"
 import { Brain, Target, TrendingUp, BarChart3, RefreshCw, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import PredictionEngine3D from "@/components/PredictionEngine3D"
 import { calculateSuccessProbability } from "@/lib/utils"
+
+// Dynamically import heavy 3D component
+const PredictionEngine3D = dynamic(
+  () => import("@/components/PredictionEngine3D"),
+  { 
+    loading: () => <div className="h-[400px] flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>,
+    ssr: false 
+  }
+)
 
 // Mock prediction data
 const mockPredictions = [

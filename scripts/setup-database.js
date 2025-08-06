@@ -10,15 +10,22 @@ dotenv.config({ path: '.env.local' });
 const DATABASE_URL = process.env.DATABASE_URL;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-console.log('='.repeat(50));
-console.log('🚀 Grant Success Predictor 초기 설정');
-console.log('='.repeat(50));
+// Helper function to log only in non-production environments
+const log = (message) => {
+  if (process.env.NODE_ENV !== 'production') {
+    log(message);
+  }
+};
+
+log('='.repeat(50));
+log('🚀 Grant Success Predictor 초기 설정');
+log('='.repeat(50));
 
 async function testOpenAIConnection() {
-  console.log('\n2️⃣ OpenAI API 테스트...');
+  log('\n2️⃣ OpenAI API 테스트...');
   
   if (!OPENAI_API_KEY || OPENAI_API_KEY.includes('your-openai-key')) {
-    console.log('⚠️ OpenAI API 키가 설정되지 않았습니다.');
+    log('⚠️ OpenAI API 키가 설정되지 않았습니다.');
     return;
   }
   
@@ -32,40 +39,40 @@ async function testOpenAIConnection() {
     });
     
     if (openaiResponse.ok) {
-      console.log('✅ OpenAI API 연결 성공!');
+      log('✅ OpenAI API 연결 성공!');
     } else {
-      console.log(`⚠️ OpenAI API 응답 오류: ${openaiResponse.status}`);
+      log(`⚠️ OpenAI API 응답 오류: ${openaiResponse.status}`);
     }
   } catch (error) {
-    console.log(`⚠️ OpenAI API 테스트 실패: ${error.message}`);
+    log(`⚠️ OpenAI API 테스트 실패: ${error.message}`);
   }
 }
 
 async function setupDatabase() {
   // Check if database URL is configured
   if (!DATABASE_URL || DATABASE_URL.includes('YOUR_COCKROACHDB_PASSWORD_HERE')) {
-    console.log('\n⚠️ 데이터베이스 URL이 설정되지 않았습니다.');
-    console.log('현재는 데이터베이스 없이 실행됩니다.');
-    console.log('샘플 데이터는 메모리에서 처리됩니다.\n');
+    log('\n⚠️ 데이터베이스 URL이 설정되지 않았습니다.');
+    log('현재는 데이터베이스 없이 실행됩니다.');
+    log('샘플 데이터는 메모리에서 처리됩니다.\n');
     
     // Mock database functionality
-    console.log('✅ 메모리 기반 테스트 모드로 실행됩니다.');
+    log('✅ 메모리 기반 테스트 모드로 실행됩니다.');
     
     // Test OpenAI connection
     await testOpenAIConnection();
     
-    console.log('\n📊 메모리 모드 상태:');
-    console.log('   - 샘플 Grant 수: 5개 (하드코딩됨)');
-    console.log('   - 데이터 지속성: 없음 (세션 기반)');
-    console.log('   - 실제 데이터베이스: 비활성화');
+    log('\n📊 메모리 모드 상태:');
+    log('   - 샘플 Grant 수: 5개 (하드코딩됨)');
+    log('   - 데이터 지속성: 없음 (세션 기반)');
+    log('   - 실제 데이터베이스: 비활성화');
     
-    console.log('\n' + '='.repeat(50));
-    console.log('🎉 메모리 모드 설정 완료!');
-    console.log('='.repeat(50));
-    console.log('\n다음 단계:');
-    console.log('1. 실제 데이터베이스 연결을 위해 DATABASE_URL 설정');
-    console.log('2. Vercel에 프론트엔드 배포');
-    console.log('3. 환경변수 설정 및 배포 진행');
+    log('\n' + '='.repeat(50));
+    log('🎉 메모리 모드 설정 완료!');
+    log('='.repeat(50));
+    log('\n다음 단계:');
+    log('1. 실제 데이터베이스 연결을 위해 DATABASE_URL 설정');
+    log('2. Vercel에 프론트엔드 배포');
+    log('3. 환경변수 설정 및 배포 진행');
     return;
   }
 
@@ -78,13 +85,13 @@ async function setupDatabase() {
 
   try {
     // 1. CockroachDB 연결 테스트
-    console.log('\n1️⃣ CockroachDB 연결 테스트...');
+    log('\n1️⃣ CockroachDB 연결 테스트...');
     await client.connect();
     const versionResult = await client.query('SELECT version()');
-    console.log('✅ 데이터베이스 연결 성공!');
+    log('✅ 데이터베이스 연결 성공!');
 
     // 2. OpenAI API 테스트
-    console.log('\n2️⃣ OpenAI API 테스트...');
+    log('\n2️⃣ OpenAI API 테스트...');
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -99,13 +106,13 @@ async function setupDatabase() {
     });
     
     if (openaiResponse.ok) {
-      console.log('✅ OpenAI API 연결 성공!');
+      log('✅ OpenAI API 연결 성공!');
     } else {
       throw new Error('OpenAI API 연결 실패');
     }
 
     // 3. 테이블 생성
-    console.log('\n3️⃣ 테이블 생성 중...');
+    log('\n3️⃣ 테이블 생성 중...');
     
     // Grants 테이블
     await client.query(`
@@ -205,10 +212,10 @@ async function setupDatabase() {
       )
     `);
 
-    console.log('✅ 테이블 생성 완료!');
+    log('✅ 테이블 생성 완료!');
 
     // 4. 샘플 Grant 데이터 삽입
-    console.log('\n4️⃣ 샘플 Grant 데이터 생성 중...');
+    log('\n4️⃣ 샘플 Grant 데이터 생성 중...');
 
     const sampleGrants = [
       {
@@ -284,19 +291,19 @@ async function setupDatabase() {
       ]);
     }
 
-    console.log('✅ 샘플 데이터 생성 완료!');
+    log('✅ 샘플 데이터 생성 완료!');
 
     // 5. 데이터 확인
     const countResult = await client.query('SELECT COUNT(*) FROM grants');
     const grantCount = countResult.rows[0].count;
     
-    console.log('\n📊 현재 데이터베이스 상태:');
-    console.log(`   - 저장된 Grant 수: ${grantCount}개`);
-    console.log('   - 사용 가능한 용량: 1GB');
-    console.log('   - 예상 저장 가능: 약 50만개');
+    log('\n📊 현재 데이터베이스 상태:');
+    log(`   - 저장된 Grant 수: ${grantCount}개`);
+    log('   - 사용 가능한 용량: 1GB');
+    log('   - 예상 저장 가능: 약 50만개');
 
     // 6. 테스트 분석 실행
-    console.log('\n6️⃣ AI 분석 테스트...');
+    log('\n6️⃣ AI 분석 테스트...');
     const testPrompt = `
 Analyze this grant proposal summary:
 "We are applying for an environmental grant to develop solar panel recycling technology."
@@ -323,22 +330,22 @@ Compare with environmental grants and provide:
 
       if (analysisResponse.ok) {
         const analysisData = await analysisResponse.json();
-        console.log('✅ AI 분석 테스트 성공!');
-        console.log('\n샘플 분석 결과:');
-        console.log(analysisData.choices[0].message.content.substring(0, 200) + '...');
+        log('✅ AI 분석 테스트 성공!');
+        log('\n샘플 분석 결과:');
+        log(analysisData.choices[0].message.content.substring(0, 200) + '...');
       }
     } catch (error) {
-      console.log(`⚠️ AI 분석 테스트 실패: ${error.message}`);
+      log(`⚠️ AI 분석 테스트 실패: ${error.message}`);
     }
 
-    console.log('\n' + '='.repeat(50));
-    console.log('🎉 초기 설정 완료!');
-    console.log('='.repeat(50));
-    console.log('\n다음 단계:');
-    console.log('1. Vercel에 프론트엔드 배포');
-    console.log('2. 환경변수 설정');
-    console.log('3. npm run build && vercel --prod');
-    console.log('\n준비가 되면 배포를 진행하세요!');
+    log('\n' + '='.repeat(50));
+    log('🎉 초기 설정 완료!');
+    log('='.repeat(50));
+    log('\n다음 단계:');
+    log('1. Vercel에 프론트엔드 배포');
+    log('2. 환경변수 설정');
+    log('3. npm run build && vercel --prod');
+    log('\n준비가 되면 배포를 진행하세요!');
 
   } catch (error) {
     console.error('❌ 오류 발생:', error.message);

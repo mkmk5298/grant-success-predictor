@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle, AlertCircle, XCircle, RefreshCw, Info } from 'lucide-react'
+import { CheckCircle, AlertCircle, XCircle, RefreshCw } from 'lucide-react'
 
 interface ServiceStatus {
   service: string

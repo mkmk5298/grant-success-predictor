@@ -1,12 +1,22 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import dynamic from 'next/dynamic'
 import { motion } from "framer-motion"
 import { Sparkles, TrendingUp, Target, Database, Brain, Rocket, Upload, AlertCircle, CheckCircle } from "lucide-react"
-import DropInAnalyzer from "@/components/DropInAnalyzer"
 import GoogleAuthButton from "@/components/GoogleAuthButton"
-import PaymentModal from "@/components/PaymentModal"
 import ApiHealthStatus from "@/components/ApiHealthStatus"
+
+// Dynamically import heavy components
+const DropInAnalyzer = dynamic(
+  () => import("@/components/DropInAnalyzer"),
+  { loading: () => <div className="animate-pulse bg-gray-100 rounded-lg h-96"></div> }
+)
+
+const PaymentModal = dynamic(
+  () => import("@/components/PaymentModal"),
+  { ssr: false }
+)
 
 // Types
 interface GoogleUser {
@@ -79,16 +89,12 @@ export default function Home() {
   
   // Debug environment variables (production-ready logging)
   useEffect(() => {
-    console.log('🚀 Grant Predictor Home component mounted')
-    
     const envStatus = {
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
       NODE_ENV: process.env.NODE_ENV,
       NEXT_PUBLIC_APP_URL: !!process.env.NEXT_PUBLIC_APP_URL,
       hasRequiredEnvVars: !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
     }
-    
-    console.log('📊 Environment status:', envStatus)
     
     if (!envStatus.hasRequiredEnvVars && process.env.NODE_ENV === 'development') {
       console.warn('⚠️ Missing required environment variables for full functionality')
@@ -126,20 +132,13 @@ export default function Home() {
 
   // Optimized event handlers with proper error handling
   const handleUpgradeClick = useCallback(() => {
-    console.log('🎯 Upgrade button clicked')
     setState(prev => ({ ...prev, showPaymentModal: true }))
   }, [])
 
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('📁 File input changed')
     const file = event.target.files?.[0]
     
     if (file) {
-      console.log('✅ File selected:', {
-        name: file.name,
-        size: `${(file.size / 1024 / 1024).toFixed(1)}MB`,
-        type: file.type
-      })
       
       const validation = validateFile(file)
       if (!validation.valid) {
@@ -173,7 +172,6 @@ export default function Home() {
 
   const handleDropZoneClick = useCallback(() => {
     if (state.fileUpload.status === 'uploading') return
-    console.log('📤 Drop zone clicked')
     fileInputRef.current?.click()
   }, [state.fileUpload.status])
 
@@ -189,16 +187,10 @@ export default function Home() {
     
     if (state.fileUpload.status === 'uploading') return
     
-    console.log('📥 File dropped')
     const files = e.dataTransfer.files
     
     if (files.length > 0) {
       const file = files[0]
-      console.log('✅ Dropped file:', {
-        name: file.name,
-        size: `${(file.size / 1024 / 1024).toFixed(1)}MB`,
-        type: file.type
-      })
       
       const validation = validateFile(file)
       if (!validation.valid) {
@@ -228,11 +220,6 @@ export default function Home() {
   }, [state.fileUpload.status, validateFile])
 
   const processFile = useCallback(async (file: File) => {
-    console.log('⚡ Processing file:', {
-      name: file.name,
-      size: `${(file.size / 1024 / 1024).toFixed(1)}MB`,
-      type: file.type
-    })
     
     // Cancel any existing upload
     if (uploadAbortController.current) {
@@ -305,11 +292,6 @@ export default function Home() {
       }
       
       const result = await response.json()
-      console.log('✅ File processed successfully:', {
-        success: result.success,
-        hasData: !!result.data,
-        processingTime: result.data?.processingTime
-      })
       
       setState(prev => ({
         ...prev,
@@ -349,12 +331,6 @@ export default function Home() {
   }, [])
 
   const handleAuthSuccess = useCallback((user: GoogleUser, sessionToken: string) => {
-    console.log('✅ Authentication successful:', {
-      userId: user.id,
-      email: user.email,
-      name: user.name,
-      verified: user.verified_email
-    })
     
     setState(prev => ({
       ...prev,
@@ -369,7 +345,6 @@ export default function Home() {
   }, [])
 
   const handlePaymentSuccess = useCallback(() => {
-    console.log('💳 Payment successful!')
     setState(prev => ({
       ...prev,
       showPaymentModal: false
@@ -378,7 +353,6 @@ export default function Home() {
   }, [])
 
   const handlePaymentClose = useCallback(() => {
-    console.log('🚪 Payment modal closed')
     setState(prev => ({
       ...prev,
       showPaymentModal: false
@@ -386,12 +360,10 @@ export default function Home() {
   }, [])
 
   const handleFeatureClick = useCallback((feature: any) => {
-    console.log('🎯 Feature clicked:', feature.title)
     // Could navigate to feature-specific page or show detailed info
   }, [])
 
   const handleNavClick = useCallback((section: string) => {
-    console.log('🔗 Navigation clicked:', section)
     // Could implement smooth scrolling or navigation
   }, [])
 
@@ -412,7 +384,7 @@ export default function Home() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 className="flex items-center gap-3"
-                onClick={() => console.log('🏠 Logo clicked')}
+                onClick={() => {}}
               >
                 <span className="text-2xl">💰</span>
                 <span className="text-xl font-bold gradient-text">Grant Predictor</span>
@@ -428,10 +400,11 @@ export default function Home() {
                 ) : (
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => console.log('👤 User profile clicked')}
+                      onClick={() => {}}
                       className="flex items-center gap-3 p-1 rounded-lg hover:bg-white/10 transition-colors"
                       aria-label={`User profile: ${state.user.name}`}
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img 
                         src={state.user.picture} 
                         alt={`${state.user.name}'s profile picture`}

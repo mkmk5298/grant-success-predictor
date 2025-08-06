@@ -144,17 +144,14 @@ export default function DropInAnalyzer() {
   }, [data])
 
   const handleInputChange = (field: keyof AnalysisData, value: string | number | boolean) => {
-    console.log('🔄 Input changed:', field, value)
     setData(prev => ({ ...prev, [field]: value }))
   }
 
   const handleCreateAccount = () => {
-    console.log('✨ Create account clicked')
     // 계정 생성 로직
   }
 
   const handleContinueAsGuest = () => {
-    console.log('👤 Continue as guest clicked')
     // 게스트 계속 로직
   }
 

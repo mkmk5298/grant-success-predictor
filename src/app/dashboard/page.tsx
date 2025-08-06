@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import dynamic from 'next/dynamic'
 import { motion } from "framer-motion"
 import { 
   TrendingUp, 
@@ -8,7 +9,6 @@ import {
   Target, 
   Calendar,
   Award,
-  Users,
   FileText,
   CheckCircle,
   Clock,
@@ -17,8 +17,17 @@ import {
   Crown
 } from "lucide-react"
 import CountUp from "react-countup"
-import DocumentUpload from "@/components/DocumentUpload"
-import SubscriptionDashboard from "@/components/SubscriptionDashboard"
+
+// Dynamically import tab components
+const DocumentUpload = dynamic(
+  () => import("@/components/DocumentUpload"),
+  { loading: () => <div className="animate-pulse bg-gray-100 rounded-lg h-96"></div> }
+)
+
+const SubscriptionDashboard = dynamic(
+  () => import("@/components/SubscriptionDashboard"),
+  { loading: () => <div className="animate-pulse bg-gray-100 rounded-lg h-96"></div> }
+)
 
 // Mock data for dashboard stats
 const stats = [

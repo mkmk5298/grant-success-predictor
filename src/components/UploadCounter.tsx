@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Upload, Zap } from 'lucide-react'
 
 interface UploadCounterProps {
@@ -20,20 +20,7 @@ export default function UploadCounter({
   const [loading, setLoading] = useState(true)
   const [sessionId, setSessionId] = useState('')
 
-  useEffect(() => {
-    // Generate or get session ID
-    let sid = sessionStorage.getItem('sessionId')
-    if (!sid) {
-      sid = 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now()
-      sessionStorage.setItem('sessionId', sid)
-    }
-    setSessionId(sid)
-
-    // Check current upload count
-    checkUploadCount()
-  }, [userId])
-
-  const checkUploadCount = async () => {
+  const checkUploadCount = useCallback(async () => {
     try {
       const response = await fetch('/api/v1/uploads/check-limit', {
         method: 'GET',
@@ -59,7 +46,20 @@ export default function UploadCounter({
     } finally {
       setLoading(false)
     }
-  }
+  }, [userId, userEmail, isSubscribed, onLimitReached, sessionId])
+
+  useEffect(() => {
+    // Generate or get session ID
+    let sid = sessionStorage.getItem('sessionId')
+    if (!sid) {
+      sid = 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now()
+      sessionStorage.setItem('sessionId', sid)
+    }
+    setSessionId(sid)
+
+    // Check current upload count
+    checkUploadCount()
+  }, [checkUploadCount])
 
   const incrementCount = async () => {
     try {

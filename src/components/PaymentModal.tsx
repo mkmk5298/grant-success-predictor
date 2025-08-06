@@ -36,12 +36,10 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
   const handleSubscribe = useCallback(async () => {
     if (isProcessing) return
 
-    console.log('💳 Subscribe button clicked')
     setIsProcessing(true)
     setError(null)
     
     try {
-      console.log('⚡ Calling payments API at:', '/api/v1/payments/create-subscription')
       
       const response = await fetch('/api/v1/payments/create-subscription', {
         method: 'POST',
@@ -56,20 +54,14 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
         signal: AbortSignal.timeout(30000) // 30 second timeout
       })
       
-      console.log('📡 Payment API response status:', response.status)
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
       
       const data: PaymentResponse = await response.json()
-      console.log('📋 Payment API response data:', data)
       
       if (data.success && data.data) {
-        console.log('✅ Payment successful!', {
-          subscriptionId: data.data.subscription?.id,
-          expiresAt: data.data.expiresAt
-        })
         onSuccess?.()
         onClose()
       } else {
@@ -91,7 +83,6 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
 
   const handleCloseClick = useCallback(() => {
     if (isProcessing) return
-    console.log('✖️ Payment modal close button clicked')
     setError(null)
     onClose()
   }, [isProcessing, onClose])

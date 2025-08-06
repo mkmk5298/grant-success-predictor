@@ -43,11 +43,9 @@ export default function GoogleAuthButton({
   const handleGoogleSignIn = useCallback(async () => {
     if (isLoading || disabled) return
 
-    console.log('🔐 Google sign-in clicked')
     setIsLoading(true)
     
     try {
-      console.log('⚡ Calling auth API at:', '/api/v1/auth/google')
       
       // For demo: Mock authentication with API call structure
       const response = await fetch('/api/v1/auth/google', {
@@ -61,21 +59,14 @@ export default function GoogleAuthButton({
         signal: AbortSignal.timeout(10000) // 10 second timeout
       })
       
-      console.log('📡 Auth API response status:', response.status)
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
       
       const data: AuthResponse = await response.json()
-      console.log('📋 Auth API response data:', data)
       
       if (data.success && data.data) {
-        console.log('✅ Authentication successful:', {
-          userId: data.data.user.id,
-          email: data.data.user.email,
-          sessionToken: data.data.sessionToken.substring(0, 8) + '...'
-        })
         onSuccess?.(data.data.user, data.data.sessionToken)
       } else {
         const errorMessage = data.error?.message || data.message || 'Authentication failed'

@@ -22,7 +22,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
 
-    console.log('Processing Stripe webhook:', event.type)
+    // Log webhook processing only in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Processing Stripe webhook:', event.type)
+    }
 
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -56,7 +59,10 @@ export async function POST(req: NextRequest) {
               currency: session.currency
             })
 
-            console.log('Subscription activated for user:', userId)
+            // Subscription activated - log only in development
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Subscription activated for user:', userId)
+            }
           }
         }
         break
@@ -73,7 +79,10 @@ export async function POST(req: NextRequest) {
             subscriptionEnd: new Date(subscription.current_period_end * 1000)
           })
 
-          console.log('Subscription updated for user:', userId, 'Status:', subscription.status)
+          // Subscription updated - log only in development
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Subscription updated for user:', userId, 'Status:', subscription.status)
+          }
         }
         break
       }
@@ -95,7 +104,10 @@ export async function POST(req: NextRequest) {
             canceledAt: new Date().toISOString()
           })
 
-          console.log('Subscription cancelled for user:', userId)
+          // Subscription cancelled - log only in development
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Subscription cancelled for user:', userId)
+          }
         }
         break
       }
@@ -116,7 +128,10 @@ export async function POST(req: NextRequest) {
               invoiceId: invoice.id
             })
 
-            console.log('Payment succeeded for user:', userId)
+            // Payment succeeded - log only in development
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Payment succeeded for user:', userId)
+            }
           }
         }
         break
@@ -139,14 +154,20 @@ export async function POST(req: NextRequest) {
               failureReason: invoice.last_finalization_error?.message
             })
 
-            console.log('Payment failed for user:', userId)
+            // Payment failed - log only in development
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Payment failed for user:', userId)
+            }
           }
         }
         break
       }
 
       default:
-        console.log('Unhandled Stripe webhook event:', event.type)
+        // Unhandled webhook event - log only in development
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Unhandled Stripe webhook event:', event.type)
+        }
     }
 
     return NextResponse.json({ received: true })

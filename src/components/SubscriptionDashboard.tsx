@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Crown, Calendar, CreditCard, Zap, Users, FileText, TrendingUp, AlertCircle } from 'lucide-react'
 
 interface SubscriptionDashboardProps {
@@ -25,11 +25,7 @@ export default function SubscriptionDashboard({ userId, userEmail }: Subscriptio
   })
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchUserStats()
-  }, [userId])
-
-  const fetchUserStats = async () => {
+  const fetchUserStats = useCallback(async () => {
     try {
       const response = await fetch('/api/v1/users/stats', {
         headers: {
@@ -47,7 +43,11 @@ export default function SubscriptionDashboard({ userId, userEmail }: Subscriptio
     } finally {
       setLoading(false)
     }
-  }
+  }, [userId, userEmail])
+
+  useEffect(() => {
+    fetchUserStats()
+  }, [fetchUserStats])
 
   const handleCancelSubscription = async () => {
     if (confirm('Are you sure you want to cancel your subscription? You will lose access to unlimited analyses at the end of your billing period.')) {

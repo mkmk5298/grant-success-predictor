@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { 
   Search, 
-  Filter, 
   SlidersHorizontal,
   MapPin,
   Calendar,
@@ -13,8 +12,7 @@ import {
   Target,
   TrendingUp,
   Bookmark,
-  ExternalLink,
-  X
+  ExternalLink
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"

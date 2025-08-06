@@ -24,7 +24,10 @@ export async function connectToDatabase() {
     })
     
     await db.connect()
-    console.log('Connected to CockroachDB successfully')
+    // Database connected - log only in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Connected to CockroachDB successfully')
+    }
     
     // Initialize tables if they don't exist
     await initializeTables()
@@ -186,7 +189,10 @@ async function initializeTables() {
       )
     `)
 
-    console.log('Database tables initialized successfully')
+    // Database tables initialized - log only in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Database tables initialized successfully')
+    }
   } catch (error) {
     console.error('Table initialization failed:', error)
   }
@@ -542,6 +548,9 @@ export async function closeDatabase() {
   if (db) {
     await db.end()
     db = null
-    console.log('Database connection closed')
+    // Database connection closed - log only in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Database connection closed')
+    }
   }
 }
