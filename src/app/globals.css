@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap');
+@import "tailwindcss";
 
 :root {
   --background: #0a0a0a;
@@ -47,12 +47,29 @@ body {
   border: 1px solid var(--glass-border);
 }
 
-/* Gradient text */
+/* Gradient text with improved contrast */
 .gradient-text {
   background: var(--gradient-1);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  /* Stronger fallback for better visibility */
+  color: #ffffff !important;
+}
+
+/* Enhanced fallback for browsers that don't support gradient text */
+@supports not (background-clip: text) {
+  .gradient-text {
+    color: #ffffff !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Force contrast on important text elements */
+.gradient-text.force-contrast {
+  -webkit-text-fill-color: white !important;
+  background: none !important;
+  color: white !important;
 }
 
 /* DoNotPay-style animated background */
@@ -105,4 +122,48 @@ body {
   height: 100%;
   pointer-events: none;
   z-index: 1;
+}
+
+/* Enhanced text visibility fixes */
+.text-white {
+  color: #ffffff !important;
+}
+
+.text-white\/60 {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.text-white\/70 {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.text-white\/80 {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Ensure all text elements have proper contrast */
+h1, h2, h3, h4, h5, h6 {
+  color: inherit;
+}
+
+/* Override any problematic text colors on the main page */
+.animated-bg p, 
+.animated-bg h1, 
+.animated-bg h2, 
+.animated-bg h3, 
+.animated-bg span:not(.gradient-text) {
+  color: white !important;
+}
+
+/* Glass component text visibility */
+.glass * {
+  color: white !important;
+}
+
+.glass h3 {
+  color: white !important;
+}
+
+.glass p {
+  color: rgba(255, 255, 255, 0.8) !important;
 }

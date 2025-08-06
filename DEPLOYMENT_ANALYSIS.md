@@ -145,7 +145,7 @@ NEXTAUTH_SECRET=                # Session security
 # Stripe Setup
 - [ ] Create Stripe account
 - [ ] Configure webhook endpoints
-- [ ] Set up product pricing ($36/3 months)
+- [ ] Set up product pricing ($19/month)
 - [ ] Test payment flow
 
 # Database Setup (Optional)

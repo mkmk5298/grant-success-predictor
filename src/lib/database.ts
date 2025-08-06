@@ -91,7 +91,7 @@ async function initializeTables() {
       )
     `)
 
-    // Users table for authentication
+    // Users table for authentication - Enhanced schema
     await db.query(`
       CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -99,7 +99,14 @@ async function initializeTables() {
         name VARCHAR(255) NOT NULL,
         google_id VARCHAR(255) UNIQUE,
         picture VARCHAR(500),
+        organization_name VARCHAR(255),
+        organization_type VARCHAR(100),
         subscription_status VARCHAR(50) DEFAULT 'free',
+        subscription_end TIMESTAMPTZ,
+        profile_data JSONB,
+        total_analyses INTEGER DEFAULT 0,
+        monthly_analyses INTEGER DEFAULT 0,
+        last_analysis TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       )
@@ -138,6 +145,47 @@ async function initializeTables() {
       )
     `)
 
+    // User upload tracking for 2-upload limit
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_uploads (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id),
+        session_id VARCHAR(255),
+        ip_address VARCHAR(45),
+        upload_count INTEGER DEFAULT 0,
+        first_upload_at TIMESTAMPTZ,
+        last_upload_at TIMESTAMPTZ,
+        subscription_status VARCHAR(50) DEFAULT 'free',
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
+    // Upload history for detailed tracking
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS upload_history (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id),
+        session_id VARCHAR(255),
+        file_name VARCHAR(255),
+        analysis_completed BOOLEAN DEFAULT FALSE,
+        credits_used INTEGER DEFAULT 1,
+        uploaded_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
+    // Analytics tracking for conversion metrics
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS analytics_events (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id),
+        session_id VARCHAR(255),
+        event_type VARCHAR(100) NOT NULL,
+        event_data JSONB,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
     console.log('Database tables initialized successfully')
   } catch (error) {
     console.error('Table initialization failed:', error)
@@ -150,18 +198,20 @@ export async function createUser(userData: {
   name: string
   googleId?: string
   picture?: string
+  organizationName?: string
+  organizationType?: string
 }) {
   const database = await connectToDatabase()
   if (!database) return null
 
   try {
     const result = await database.query(
-      `INSERT INTO users (email, name, google_id, picture) 
-       VALUES ($1, $2, $3, $4) 
+      `INSERT INTO users (email, name, google_id, picture, organization_name, organization_type) 
+       VALUES ($1, $2, $3, $4, $5, $6) 
        ON CONFLICT (email) DO UPDATE SET 
-         name = $2, google_id = $3, picture = $4, updated_at = NOW()
+         name = $2, google_id = $3, picture = $4, organization_name = $5, organization_type = $6, updated_at = NOW()
        RETURNING *`,
-      [userData.email, userData.name, userData.googleId, userData.picture]
+      [userData.email, userData.name, userData.googleId, userData.picture, userData.organizationName, userData.organizationType]
     )
     return result.rows[0]
   } catch (error) {
@@ -182,6 +232,97 @@ export async function getUserByEmail(email: string) {
     return result.rows[0] || null
   } catch (error) {
     console.error('Failed to get user:', error)
+    return null
+  }
+}
+
+export async function updateUserProfile(email: string, updates: {
+  organizationName?: string
+  organizationType?: string
+  profileData?: any
+  subscriptionStatus?: string
+  subscriptionEnd?: Date
+}) {
+  const database = await connectToDatabase()
+  if (!database) return null
+
+  try {
+    const setClauses = []
+    const values = []
+    let paramCount = 0
+
+    if (updates.organizationName !== undefined) {
+      paramCount++
+      setClauses.push(`organization_name = $${paramCount}`)
+      values.push(updates.organizationName)
+    }
+
+    if (updates.organizationType !== undefined) {
+      paramCount++
+      setClauses.push(`organization_type = $${paramCount}`)
+      values.push(updates.organizationType)
+    }
+
+    if (updates.profileData !== undefined) {
+      paramCount++
+      setClauses.push(`profile_data = $${paramCount}`)
+      values.push(JSON.stringify(updates.profileData))
+    }
+
+    if (updates.subscriptionStatus !== undefined) {
+      paramCount++
+      setClauses.push(`subscription_status = $${paramCount}`)
+      values.push(updates.subscriptionStatus)
+    }
+
+    if (updates.subscriptionEnd !== undefined) {
+      paramCount++
+      setClauses.push(`subscription_end = $${paramCount}`)
+      values.push(updates.subscriptionEnd)
+    }
+
+    if (setClauses.length === 0) {
+      return await getUserByEmail(email) // No updates, return current user
+    }
+
+    paramCount++
+    setClauses.push(`updated_at = NOW()`)
+    values.push(email)
+
+    const query = `
+      UPDATE users 
+      SET ${setClauses.join(', ')}
+      WHERE email = $${paramCount}
+      RETURNING *
+    `
+
+    const result = await database.query(query, values)
+    return result.rows[0] || null
+  } catch (error) {
+    console.error('Failed to update user profile:', error)
+    return null
+  }
+}
+
+export async function updateUserUsage(email: string, incrementAnalyses: boolean = true) {
+  const database = await connectToDatabase()
+  if (!database) return null
+
+  try {
+    const result = await database.query(`
+      UPDATE users 
+      SET 
+        total_analyses = total_analyses + $1,
+        monthly_analyses = monthly_analyses + $1,
+        last_analysis = NOW(),
+        updated_at = NOW()
+      WHERE email = $2
+      RETURNING *
+    `, [incrementAnalyses ? 1 : 0, email])
+    
+    return result.rows[0] || null
+  } catch (error) {
+    console.error('Failed to update user usage:', error)
     return null
   }
 }
@@ -293,6 +434,106 @@ export async function getAnalytics() {
   } catch (error) {
     console.error('Failed to get analytics:', error)
     return null
+  }
+}
+
+// Upload tracking operations
+export async function getUploadCount(userId?: string, sessionId?: string, ipAddress?: string) {
+  const database = await connectToDatabase()
+  if (!database) return 0
+
+  try {
+    let query, params
+    
+    if (userId) {
+      query = 'SELECT upload_count FROM user_uploads WHERE user_id = $1'
+      params = [userId]
+    } else {
+      query = 'SELECT upload_count FROM user_uploads WHERE session_id = $1 OR ip_address = $2'
+      params = [sessionId, ipAddress]
+    }
+
+    const result = await database.query(query, params)
+    return result.rows[0]?.upload_count || 0
+  } catch (error) {
+    console.error('Failed to get upload count:', error)
+    return 0
+  }
+}
+
+export async function incrementUploadCount(userId?: string, sessionId?: string, ipAddress?: string, fileName?: string) {
+  const database = await connectToDatabase()
+  if (!database) return false
+
+  try {
+    await database.query('BEGIN')
+
+    // Update or insert upload tracking
+    if (userId) {
+      await database.query(`
+        INSERT INTO user_uploads (user_id, session_id, ip_address, upload_count, first_upload_at, last_upload_at)
+        VALUES ($1, $2, $3, 1, NOW(), NOW())
+        ON CONFLICT (user_id) DO UPDATE SET
+          upload_count = user_uploads.upload_count + 1,
+          last_upload_at = NOW(),
+          session_id = COALESCE(user_uploads.session_id, $2),
+          ip_address = COALESCE(user_uploads.ip_address, $3)
+      `, [userId, sessionId, ipAddress])
+    } else {
+      await database.query(`
+        INSERT INTO user_uploads (session_id, ip_address, upload_count, first_upload_at, last_upload_at)
+        VALUES ($1, $2, 1, NOW(), NOW())
+        ON CONFLICT (session_id) DO UPDATE SET
+          upload_count = user_uploads.upload_count + 1,
+          last_upload_at = NOW(),
+          ip_address = COALESCE(user_uploads.ip_address, $2)
+      `, [sessionId, ipAddress])
+    }
+
+    // Record upload history
+    await database.query(`
+      INSERT INTO upload_history (user_id, session_id, file_name, analysis_completed, credits_used)
+      VALUES ($1, $2, $3, FALSE, 1)
+    `, [userId, sessionId, fileName])
+
+    await database.query('COMMIT')
+    return true
+  } catch (error) {
+    await database.query('ROLLBACK')
+    console.error('Failed to increment upload count:', error)
+    return false
+  }
+}
+
+export async function hasActiveSubscription(userId: string) {
+  const database = await connectToDatabase()
+  if (!database) return false
+
+  try {
+    const result = await database.query(`
+      SELECT s.* FROM subscriptions s 
+      JOIN users u ON s.user_id = u.id 
+      WHERE u.id = $1 AND s.status = 'active' AND s.current_period_end > NOW()
+    `, [userId])
+
+    return result.rows.length > 0
+  } catch (error) {
+    console.error('Failed to check subscription:', error)
+    return false
+  }
+}
+
+export async function trackAnalyticsEvent(eventType: string, userId?: string, sessionId?: string, eventData?: any) {
+  const database = await connectToDatabase()
+  if (!database) return
+
+  try {
+    await database.query(`
+      INSERT INTO analytics_events (user_id, session_id, event_type, event_data)
+      VALUES ($1, $2, $3, $4)
+    `, [userId, sessionId, eventType, eventData ? JSON.stringify(eventData) : null])
+  } catch (error) {
+    console.error('Failed to track analytics event:', error)
   }
 }
 

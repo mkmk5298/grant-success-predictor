@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { 
   TrendingUp, 
@@ -12,9 +12,13 @@ import {
   FileText,
   CheckCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Upload,
+  Crown
 } from "lucide-react"
 import CountUp from "react-countup"
+import DocumentUpload from "@/components/DocumentUpload"
+import SubscriptionDashboard from "@/components/SubscriptionDashboard"
 
 // Mock data for dashboard stats
 const stats = [
@@ -163,8 +167,137 @@ function getPriorityColor(priority: string) {
 }
 
 export default function DashboardPage() {
+  const [activeTab, setActiveTab] = useState<'overview' | 'upload' | 'subscription'>('overview')
+  const [user, setUser] = useState<{ id: string; email: string; isSubscribed: boolean } | null>(null)
+
+  useEffect(() => {
+    // Mock user - in real app, get from auth context
+    setUser({
+      id: 'user_123',
+      email: 'user@example.com', 
+      isSubscribed: false
+    })
+  }, [])
+
+  if (activeTab === 'upload') {
+    return (
+      <div className="space-y-8">
+        {/* Tab Navigation */}
+        <div className="flex space-x-1 p-1 glass rounded-xl">
+          {[
+            { id: 'overview', label: 'Overview', icon: TrendingUp },
+            { id: 'upload', label: 'Upload Document', icon: Upload },
+            { id: 'subscription', label: 'Subscription', icon: Crown }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+                activeTab === tab.id
+                  ? 'bg-blue-500 text-white shadow-lg'
+                  : 'text-white/70 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Upload Content */}
+        <div className="glass rounded-3xl p-8">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-white mb-2">
+              Grant Proposal Analysis
+            </h1>
+            <p className="text-white/70">
+              Upload your grant proposal for comprehensive AI-powered analysis and recommendations.
+            </p>
+          </div>
+          
+          {user && (
+            <DocumentUpload
+              userId={user.id}
+              userEmail={user.email}
+              isSubscribed={user.isSubscribed}
+            />
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (activeTab === 'subscription') {
+    return (
+      <div className="space-y-8">
+        {/* Tab Navigation */}
+        <div className="flex space-x-1 p-1 glass rounded-xl">
+          {[
+            { id: 'overview', label: 'Overview', icon: TrendingUp },
+            { id: 'upload', label: 'Upload Document', icon: Upload },
+            { id: 'subscription', label: 'Subscription', icon: Crown }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+                activeTab === tab.id
+                  ? 'bg-blue-500 text-white shadow-lg'
+                  : 'text-white/70 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Subscription Content */}
+        <div className="glass rounded-3xl p-8">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-white mb-2">
+              Subscription Management
+            </h1>
+            <p className="text-white/70">
+              Manage your Grant Predictor Pro subscription and view usage statistics.
+            </p>
+          </div>
+          
+          {user && (
+            <SubscriptionDashboard
+              userId={user.id}
+              userEmail={user.email}
+            />
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8">
+      {/* Tab Navigation */}
+      <div className="flex space-x-1 p-1 glass rounded-xl">
+        {[
+          { id: 'overview', label: 'Overview', icon: TrendingUp },
+          { id: 'upload', label: 'Upload Document', icon: Upload },
+          { id: 'subscription', label: 'Subscription', icon: Crown }
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+              activeTab === tab.id
+                ? 'bg-blue-500 text-white shadow-lg'
+                : 'text-white/70 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Welcome Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -177,7 +310,7 @@ export default function DashboardPage() {
               Welcome back! 👋
             </h1>
             <p className="text-white/70">
-              Here's what's happening with your grant applications today.
+              Here&apos;s what&apos;s happening with your grant applications today.
             </p>
           </div>
           <div className="hidden md:block">

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { connectToDatabase } from '@/lib/database'
+import { withApiHandler, createSuccess, createError, checkRateLimit } from '@/lib/api-handler'
+import { logger, createTimer } from '@/lib/logger'
+import { GrantDataService, GrantSearchFilters } from '@/lib/services/grant-data-service'
 
 const mockGrants = [
   {
@@ -64,195 +66,406 @@ const mockGrants = [
   }
 ]
 
-export async function GET(request: NextRequest) {
+async function fetchGrantsFromDatabase(filters: any, requestId: string): Promise<any[] | null> {
+  const timer = createTimer()
+  
+  logger.debug('Attempting database connection for grants', { 
+    requestId, 
+    filters,
+    hasDbConfig: !!process.env.DATABASE_URL
+  })
+  
+  if (!process.env.DATABASE_URL) {
+    logger.info('Database URL not configured, using mock data', { requestId })
+    return null
+  }
+
   try {
-    const { searchParams } = new URL(request.url)
-    const category = searchParams.get('category')
-    const minAmount = searchParams.get('min_amount')
-    const maxAmount = searchParams.get('max_amount')
-    const search = searchParams.get('search')
-    
-    // Try to fetch from database first
+    // In production, implement database connection
+    /*
     const db = await connectToDatabase()
-    if (db) {
-      try {
-        let query = 'SELECT * FROM grants WHERE 1=1'
-        const params: any[] = []
-        let paramCount = 0
+    let query = 'SELECT * FROM grants WHERE 1=1'
+    const params: any[] = []
+    let paramCount = 0
 
-        if (category) {
-          paramCount++
-          query += ` AND category ILIKE $${paramCount}`
-          params.push(`%${category}%`)
-        }
-
-        if (minAmount) {
-          paramCount++
-          query += ` AND amount_max >= $${paramCount}`
-          params.push(minAmount)
-        }
-
-        if (maxAmount) {
-          paramCount++
-          query += ` AND amount_min <= $${paramCount}`
-          params.push(maxAmount)
-        }
-
-        if (search) {
-          paramCount++
-          query += ` AND (title ILIKE $${paramCount} OR description ILIKE $${paramCount} OR keywords ILIKE $${paramCount})`
-          params.push(`%${search}%`)
-        }
-
-        query += ' ORDER BY success_rate DESC, created_at DESC LIMIT 100'
-
-        const result = await db.query(query, params)
-        
-        if (result.rows.length > 0) {
-          return NextResponse.json({
-            success: true,
-            grants: result.rows.map(row => ({
-              id: row.id,
-              title: row.title,
-              agency: row.agency,
-              amount: `$${row.amount_min} - $${row.amount_max}`,
-              amount_min: row.amount_min,
-              amount_max: row.amount_max,
-              deadline: row.deadline,
-              category: row.category,
-              eligibility: row.eligibility ? row.eligibility.split(',') : [],
-              description: row.description,
-              keywords: row.keywords ? row.keywords.split(',') : [],
-              success_rate: row.success_rate,
-              match_score: row.success_rate // Use success_rate as initial match_score
-            })),
-            total: result.rows.length,
-            source: 'database'
-          })
-        }
-      } catch (dbError) {
-        console.error('Database query error:', dbError)
-        // Fall through to use mock data
-      }
+    if (filters.category) {
+      paramCount++
+      query += ` AND category ILIKE $${paramCount}`
+      params.push(`%${filters.category}%`)
     }
-    
-    // Fallback to mock data if database is not available or empty
-    let filteredGrants = [...mockGrants]
-    
-    // Filter by category
-    if (category) {
-      filteredGrants = filteredGrants.filter(grant => 
-        grant.category.toLowerCase().includes(category.toLowerCase())
-      )
+
+    if (filters.minAmount) {
+      paramCount++
+      query += ` AND amount_max >= $${paramCount}`
+      params.push(filters.minAmount)
     }
-    
-    // Filter by amount range
-    if (minAmount) {
-      filteredGrants = filteredGrants.filter(grant => 
-        grant.amount >= parseInt(minAmount)
-      )
+
+    if (filters.maxAmount) {
+      paramCount++
+      query += ` AND amount_min <= $${paramCount}`
+      params.push(filters.maxAmount)
     }
-    
-    if (maxAmount) {
-      filteredGrants = filteredGrants.filter(grant => 
-        grant.amount <= parseInt(maxAmount)
-      )
+
+    if (filters.search) {
+      paramCount++
+      query += ` AND (title ILIKE $${paramCount} OR description ILIKE $${paramCount} OR keywords ILIKE $${paramCount})`
+      params.push(`%${filters.search}%`)
     }
+
+    query += ' ORDER BY success_rate DESC, created_at DESC LIMIT 100'
+    const result = await db.query(query, params)
     
-    // Search in title, description, and keywords
-    if (search) {
-      const searchLower = search.toLowerCase()
-      filteredGrants = filteredGrants.filter(grant => 
-        grant.title.toLowerCase().includes(searchLower) ||
-        grant.description.toLowerCase().includes(searchLower) ||
-        grant.keywords.some(keyword => keyword.toLowerCase().includes(searchLower))
-      )
-    }
+    return result.rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      agency: row.agency,
+      amount: row.amount_max,
+      amount_min: row.amount_min,
+      amount_max: row.amount_max,
+      deadline: row.deadline,
+      category: row.category,
+      eligibility: row.eligibility ? row.eligibility.split(',') : [],
+      description: row.description,
+      keywords: row.keywords ? row.keywords.split(',') : [],
+      success_rate: row.success_rate,
+      match_score: row.success_rate
+    }))
+    */
     
-    // Sort by match score (highest first)
-    filteredGrants.sort((a, b) => b.match_score - a.match_score)
-    
-    return NextResponse.json({
-      success: true,
-      grants: filteredGrants,
-      total: filteredGrants.length,
-      filters_applied: {
-        category,
-        min_amount: minAmount,
-        max_amount: maxAmount,
-        search
-      }
+    const duration = timer.end()
+    logger.info('Database grants query would be executed (mock)', {
+      requestId,
+      filters,
+      duration,
+      type: 'mock_db_query'
     })
     
+    return null // Return null to fall back to mock data
+    
   } catch (error) {
-    console.error('Grants API error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch grants' },
-      { status: 500 }
-    )
+    const duration = timer.end()
+    logger.dbError('SELECT grants', error, { 
+      requestId, 
+      filters,
+      duration 
+    })
+    return null
   }
 }
 
-export async function POST(request: NextRequest) {
+function filterMockGrants(filters: any): any[] {
+  let filteredGrants = [...mockGrants]
+  
+  // Filter by category
+  if (filters.category) {
+    filteredGrants = filteredGrants.filter(grant => 
+      grant.category.toLowerCase().includes(filters.category.toLowerCase())
+    )
+  }
+  
+  // Filter by amount range
+  if (filters.minAmount) {
+    filteredGrants = filteredGrants.filter(grant => 
+      grant.amount >= parseInt(filters.minAmount)
+    )
+  }
+  
+  if (filters.maxAmount) {
+    filteredGrants = filteredGrants.filter(grant => 
+      grant.amount <= parseInt(filters.maxAmount)
+    )
+  }
+  
+  // Search in title, description, and keywords
+  if (filters.search) {
+    const searchLower = filters.search.toLowerCase()
+    filteredGrants = filteredGrants.filter(grant => 
+      grant.title.toLowerCase().includes(searchLower) ||
+      grant.description.toLowerCase().includes(searchLower) ||
+      grant.keywords.some((keyword: string) => keyword.toLowerCase().includes(searchLower))
+    )
+  }
+  
+  // Sort by match score (highest first)
+  filteredGrants.sort((a, b) => b.match_score - a.match_score)
+  
+  return filteredGrants
+}
+
+export const GET = withApiHandler(async (request: NextRequest, { requestContext, requestId }) => {
+  const overallTimer = createTimer()
+  
+  logger.info('Enhanced grants search request received', { 
+    requestId,
+    ip: requestContext.ip,
+    userAgent: requestContext.userAgent 
+  })
+  
+  // Rate limiting
+  const clientIp = requestContext.ip || 'unknown'
+  if (!checkRateLimit(clientIp, 30, 60 * 1000)) { // 30 requests per minute
+    logger.warn('Rate limit exceeded for grants search', { ip: clientIp, requestId })
+    throw createError.rateLimited('Too many search requests. Please try again later.')
+  }
+  
+  const { searchParams } = new URL(request.url)
+  
+  // Parse search parameters into GrantSearchFilters
+  const filters: GrantSearchFilters = {}
+  
+  if (searchParams.get('category')) {
+    filters.category = searchParams.get('category') as string
+  }
+  if (searchParams.get('min_amount')) {
+    filters.amountMin = parseInt(searchParams.get('min_amount') as string)
+  }
+  if (searchParams.get('max_amount')) {
+    filters.amountMax = parseInt(searchParams.get('max_amount') as string)
+  }
+  if (searchParams.get('agency')) {
+    filters.agency = searchParams.get('agency') as string
+  }
+  if (searchParams.get('keywords')) {
+    filters.keywords = (searchParams.get('keywords') as string).split(',').map(k => k.trim())
+  }
+  
+  // Handle search parameter as keywords
+  if (searchParams.get('search')) {
+    const searchTerms = (searchParams.get('search') as string).split(' ').filter(term => term.length > 0)
+    filters.keywords = [...(filters.keywords || []), ...searchTerms]
+  }
+
+  // Handle deadline filters
+  if (searchParams.get('deadline_from') || searchParams.get('deadline_to')) {
+    filters.deadline = {}
+    if (searchParams.get('deadline_from')) {
+      filters.deadline.from = searchParams.get('deadline_from') as string
+    }
+    if (searchParams.get('deadline_to')) {
+      filters.deadline.to = searchParams.get('deadline_to') as string
+    }
+  }
+  
+  logger.debug('Processing enhanced grants search', {
+    requestId,
+    filters,
+    searchSource: 'multi_api'
+  })
+  
   try {
-    const { organizationType, fundingAmount, keywords } = await request.json()
+    // Use the enhanced GrantDataService
+    const grantDataService = new GrantDataService()
     
-    // Mock matching algorithm
-    let matchedGrants = [...mockGrants]
+    // Search across all sources
+    const grants = await grantDataService.searchAllSources(filters)
     
-    // Filter by organization eligibility
-    if (organizationType) {
-      matchedGrants = matchedGrants.filter(grant => 
-        grant.eligibility.some(eligible => 
-          eligible.toLowerCase().includes(organizationType.toLowerCase())
-        )
+    const processingTime = overallTimer.end()
+    
+    logger.info('Enhanced grants search completed successfully', {
+      requestId,
+      grantsReturned: grants.length,
+      source: 'multi_api',
+      processingTime,
+      filtersApplied: Object.keys(filters).length
+    })
+    
+    return NextResponse.json(createSuccess({
+      grants: grants.map(grant => ({
+        id: grant.id,
+        title: grant.title,
+        agency: grant.agency,
+        amount: grant.amount,
+        amount_min: grant.amountMin,
+        amount_max: grant.amountMax,
+        deadline: grant.deadline,
+        category: grant.category,
+        description: grant.description,
+        keywords: grant.keywords,
+        eligibility: grant.eligibility,
+        url: grant.url,
+        source: grant.source,
+        success_rate: grant.successRate,
+        match_score: grant.successRate, // Use success rate as match score
+        last_updated: grant.lastUpdated
+      })),
+      total: grants.length,
+      source: 'enhanced_multi_api',
+      sources_queried: ['USASpending', 'Grants.gov', 'NIH', 'Foundation990s'],
+      filters_applied: filters,
+      processingTime
+    }, `Found ${grants.length} grants from multiple sources`))
+    
+  } catch (error) {
+    const processingTime = overallTimer.end()
+    logger.error('Enhanced grants search failed, falling back to mock data', { 
+      requestId, 
+      processingTime,
+      filters 
+    }, error)
+    
+    // Fallback to mock data
+    const mockFilters = {
+      category: filters.category,
+      minAmount: filters.amountMin?.toString(),
+      maxAmount: filters.amountMax?.toString(),
+      search: filters.keywords?.join(' ')
+    }
+    
+    const grants = filterMockGrants(mockFilters)
+    
+    return NextResponse.json(createSuccess({
+      grants,
+      total: grants.length,
+      source: 'mock_fallback',
+      filters_applied: filters,
+      processingTime,
+      warning: 'External API sources unavailable, using mock data'
+    }, `Found ${grants.length} grants (mock data fallback)`))
+  }
+})
+
+interface GrantMatchRequest {
+  organizationType?: string
+  fundingAmount?: number
+  keywords?: string[]
+}
+
+function calculateGrantMatches(criteria: GrantMatchRequest): any[] {
+  let matchedGrants = [...mockGrants]
+  
+  logger.debug('Calculating grant matches', {
+    organizationType: criteria.organizationType,
+    fundingAmount: criteria.fundingAmount,
+    keywordsCount: criteria.keywords?.length || 0
+  })
+  
+  // Filter by organization eligibility
+  if (criteria.organizationType) {
+    const beforeCount = matchedGrants.length
+    matchedGrants = matchedGrants.filter(grant => 
+      grant.eligibility.some(eligible => 
+        eligible.toLowerCase().includes(criteria.organizationType!.toLowerCase())
       )
-    }
+    )
     
-    // Adjust match scores based on funding amount proximity
-    if (fundingAmount) {
-      matchedGrants = matchedGrants.map(grant => ({
+    logger.debug('Filtered by organization type', {
+      organizationType: criteria.organizationType,
+      beforeCount,
+      afterCount: matchedGrants.length
+    })
+  }
+  
+  // Adjust match scores based on funding amount proximity
+  if (criteria.fundingAmount) {
+    matchedGrants = matchedGrants.map(grant => ({
+      ...grant,
+      match_score: Math.max(0, grant.match_score - Math.abs(grant.amount - criteria.fundingAmount!) / 10000)
+    }))
+  }
+  
+  // Boost scores for keyword matches
+  if (criteria.keywords && criteria.keywords.length > 0) {
+    matchedGrants = matchedGrants.map(grant => {
+      const keywordMatches = criteria.keywords!.filter((keyword: string) =>
+        grant.keywords.some(grantKeyword => 
+          grantKeyword.toLowerCase().includes(keyword.toLowerCase())
+        )
+      ).length
+      
+      return {
         ...grant,
-        match_score: Math.max(0, grant.match_score - Math.abs(grant.amount - fundingAmount) / 10000)
-      }))
-    }
+        match_score: Math.min(100, grant.match_score + (keywordMatches * 5))
+      }
+    })
+  }
+  
+  // Sort by match score and take top matches
+  matchedGrants.sort((a, b) => b.match_score - a.match_score)
+  matchedGrants = matchedGrants.slice(0, 10) // Top 10 matches
+  
+  return matchedGrants
+}
+
+export const POST = withApiHandler(async (request: NextRequest, { requestContext, requestId }) => {
+  const overallTimer = createTimer()
+  
+  logger.info('Grant matching request received', { 
+    requestId,
+    ip: requestContext.ip,
+    userAgent: requestContext.userAgent 
+  })
+  
+  // Rate limiting
+  const clientIp = requestContext.ip || 'unknown'
+  if (!checkRateLimit(clientIp, 15, 60 * 1000)) { // 15 requests per minute
+    logger.warn('Rate limit exceeded for grant matching', { ip: clientIp, requestId })
+    throw createError.rateLimited('Too many matching requests. Please try again later.')
+  }
+  
+  let body: GrantMatchRequest
+  try {
+    body = await request.json()
+  } catch (error) {
+    logger.warn('Invalid JSON in request body', { requestId, error })
+    throw createError.validation('Invalid request format')
+  }
+  
+  const { organizationType, fundingAmount, keywords } = body
+  
+  logger.debug('Processing grant matching request', {
+    requestId,
+    organizationType,
+    fundingAmount,
+    keywordsCount: keywords?.length || 0
+  })
+  
+  // Validate funding amount if provided
+  if (fundingAmount !== undefined && (fundingAmount < 0 || fundingAmount > 50000000)) {
+    throw createError.validation('Funding amount must be between $0 and $50,000,000')
+  }
+  
+  // Validate keywords if provided
+  if (keywords && (!Array.isArray(keywords) || keywords.length > 20)) {
+    throw createError.validation('Keywords must be an array with maximum 20 items')
+  }
+  
+  try {
+    // Calculate matching grants
+    const matchedGrants = calculateGrantMatches(body)
     
-    // Boost scores for keyword matches
-    if (keywords && keywords.length > 0) {
-      matchedGrants = matchedGrants.map(grant => {
-        const keywordMatches = keywords.filter((keyword: string) =>
-          grant.keywords.some(grantKeyword => 
-            grantKeyword.toLowerCase().includes(keyword.toLowerCase())
-          )
-        ).length
-        
-        return {
-          ...grant,
-          match_score: Math.min(100, grant.match_score + (keywordMatches * 5))
-        }
-      })
-    }
+    const processingTime = overallTimer.end()
     
-    // Sort by match score and take top matches
-    matchedGrants.sort((a, b) => b.match_score - a.match_score)
-    matchedGrants = matchedGrants.slice(0, 10) // Top 10 matches
+    logger.info('Grant matching completed successfully', {
+      requestId,
+      totalMatches: matchedGrants.length,
+      topMatchScore: matchedGrants[0]?.match_score || 0,
+      processingTime,
+      criteria: {
+        organizationType,
+        fundingAmount,
+        keywordsCount: keywords?.length || 0
+      }
+    })
     
-    return NextResponse.json({
-      success: true,
+    return NextResponse.json(createSuccess({
       matched_grants: matchedGrants,
       total_matches: matchedGrants.length,
       matching_criteria: {
         organizationType,
         fundingAmount,
-        keywords
-      }
-    })
+        keywords: keywords || []
+      },
+      top_match_score: matchedGrants[0]?.match_score || 0,
+      processingTime
+    }, `Found ${matchedGrants.length} matching grants`))
     
   } catch (error) {
-    console.error('Grant matching error:', error)
-    return NextResponse.json(
-      { error: 'Grant matching failed' },
-      { status: 500 }
-    )
+    const processingTime = overallTimer.end()
+    logger.error('Grant matching failed', { 
+      requestId, 
+      processingTime,
+      criteria: { organizationType, fundingAmount, keywords: keywords?.length }
+    }, error)
+    throw error
   }
-}
+})

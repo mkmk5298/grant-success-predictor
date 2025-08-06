@@ -14,7 +14,61 @@ console.log('='.repeat(50));
 console.log('🚀 Grant Success Predictor 초기 설정');
 console.log('='.repeat(50));
 
+async function testOpenAIConnection() {
+  console.log('\n2️⃣ OpenAI API 테스트...');
+  
+  if (!OPENAI_API_KEY || OPENAI_API_KEY.includes('your-openai-key')) {
+    console.log('⚠️ OpenAI API 키가 설정되지 않았습니다.');
+    return;
+  }
+  
+  try {
+    const openaiResponse = await fetch('https://api.openai.com/v1/models', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (openaiResponse.ok) {
+      console.log('✅ OpenAI API 연결 성공!');
+    } else {
+      console.log(`⚠️ OpenAI API 응답 오류: ${openaiResponse.status}`);
+    }
+  } catch (error) {
+    console.log(`⚠️ OpenAI API 테스트 실패: ${error.message}`);
+  }
+}
+
 async function setupDatabase() {
+  // Check if database URL is configured
+  if (!DATABASE_URL || DATABASE_URL.includes('YOUR_COCKROACHDB_PASSWORD_HERE')) {
+    console.log('\n⚠️ 데이터베이스 URL이 설정되지 않았습니다.');
+    console.log('현재는 데이터베이스 없이 실행됩니다.');
+    console.log('샘플 데이터는 메모리에서 처리됩니다.\n');
+    
+    // Mock database functionality
+    console.log('✅ 메모리 기반 테스트 모드로 실행됩니다.');
+    
+    // Test OpenAI connection
+    await testOpenAIConnection();
+    
+    console.log('\n📊 메모리 모드 상태:');
+    console.log('   - 샘플 Grant 수: 5개 (하드코딩됨)');
+    console.log('   - 데이터 지속성: 없음 (세션 기반)');
+    console.log('   - 실제 데이터베이스: 비활성화');
+    
+    console.log('\n' + '='.repeat(50));
+    console.log('🎉 메모리 모드 설정 완료!');
+    console.log('='.repeat(50));
+    console.log('\n다음 단계:');
+    console.log('1. 실제 데이터베이스 연결을 위해 DATABASE_URL 설정');
+    console.log('2. Vercel에 프론트엔드 배포');
+    console.log('3. 환경변수 설정 및 배포 진행');
+    return;
+  }
+
   const client = new Client({
     connectionString: DATABASE_URL,
     ssl: {

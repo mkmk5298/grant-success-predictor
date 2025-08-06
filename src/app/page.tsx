@@ -1,13 +1,37 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { motion } from "framer-motion"
-import { Sparkles, TrendingUp, Target, Database, Brain, Rocket, Upload } from "lucide-react"
+import { Sparkles, TrendingUp, Target, Database, Brain, Rocket, Upload, AlertCircle, CheckCircle } from "lucide-react"
 import DropInAnalyzer from "@/components/DropInAnalyzer"
 import GoogleAuthButton from "@/components/GoogleAuthButton"
 import PaymentModal from "@/components/PaymentModal"
+import ApiHealthStatus from "@/components/ApiHealthStatus"
 
-// Feature cards
+// Types
+interface GoogleUser {
+  id: string
+  email: string
+  name: string
+  picture: string
+  verified_email: boolean
+}
+
+interface FileUploadState {
+  file: File | null
+  progress: number
+  status: 'idle' | 'uploading' | 'success' | 'error'
+  error?: string
+}
+
+interface AppState {
+  user: GoogleUser | null
+  sessionToken: string | null
+  showPaymentModal: boolean
+  fileUpload: FileUploadState
+}
+
+// Feature cards - memoized
 const features = [
   {
     icon: Brain,
@@ -16,7 +40,7 @@ const features = [
   },
   {
     icon: Target,
-    title: "Perfect Grant Matching",
+    title: "Perfect Grant Matching", 
     description: "Find the most relevant grants based on your organization profile and needs"
   },
   {
@@ -29,128 +53,352 @@ const features = [
     title: "Comprehensive Database",
     description: "Access to 50,000+ grants from federal, state, and private foundations"
   }
-]
+] as const
+
+// File validation constants
+const ALLOWED_FILE_TYPES = ['.pdf', '.doc', '.docx', '.txt'] as const
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const UPLOAD_TIMEOUT = 30000 // 30 seconds
 
 export default function Home() {
-  const [user, setUser] = useState<any>(null)
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  // State management with proper typing
+  const [state, setState] = useState<AppState>({
+    user: null,
+    sessionToken: null,
+    showPaymentModal: false,
+    fileUpload: {
+      file: null,
+      progress: 0,
+      status: 'idle',
+      error: undefined
+    }
+  })
   
-  // Debug 환경변수
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const uploadAbortController = useRef<AbortController | null>(null)
+  
+  // Debug environment variables (production-ready logging)
   useEffect(() => {
-    console.log('🚀 Home component mounted')
-    console.log('Environment variables available:', {
-      NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? 'Set' : 'Not set',
+    console.log('🚀 Grant Predictor Home component mounted')
+    
+    const envStatus = {
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
       NODE_ENV: process.env.NODE_ENV,
-      NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL
-    })
+      NEXT_PUBLIC_APP_URL: !!process.env.NEXT_PUBLIC_APP_URL,
+      hasRequiredEnvVars: !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    }
+    
+    console.log('📊 Environment status:', envStatus)
+    
+    if (!envStatus.hasRequiredEnvVars && process.env.NODE_ENV === 'development') {
+      console.warn('⚠️ Missing required environment variables for full functionality')
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (uploadAbortController.current) {
+        uploadAbortController.current.abort()
+      }
+    }
   }, [])
 
-  // 버튼 클릭 핸들러들
-  const handleUpgradeClick = () => {
-    console.log('🎯 Upgrade button clicked')
-    setShowPaymentModal(true)
-  }
+  // File validation helper
+  const validateFile = useCallback((file: File): { valid: boolean; error?: string } => {
+    // Check file size
+    if (file.size > MAX_FILE_SIZE) {
+      return {
+        valid: false,
+        error: `File size must be less than ${MAX_FILE_SIZE / 1024 / 1024}MB. Current size: ${(file.size / 1024 / 1024).toFixed(1)}MB`
+      }
+    }
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    // Check file type
+    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase()
+    if (!ALLOWED_FILE_TYPES.includes(fileExtension as any)) {
+      return {
+        valid: false,
+        error: `File type not supported. Allowed types: ${ALLOWED_FILE_TYPES.join(', ')}`
+      }
+    }
+
+    return { valid: true }
+  }, [])
+
+  // Optimized event handlers with proper error handling
+  const handleUpgradeClick = useCallback(() => {
+    console.log('🎯 Upgrade button clicked')
+    setState(prev => ({ ...prev, showPaymentModal: true }))
+  }, [])
+
+  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     console.log('📁 File input changed')
     const file = event.target.files?.[0]
+    
     if (file) {
-      console.log('✅ File selected:', file.name, 'Size:', file.size)
-      setSelectedFile(file)
+      console.log('✅ File selected:', {
+        name: file.name,
+        size: `${(file.size / 1024 / 1024).toFixed(1)}MB`,
+        type: file.type
+      })
+      
+      const validation = validateFile(file)
+      if (!validation.valid) {
+        setState(prev => ({
+          ...prev,
+          fileUpload: {
+            ...prev.fileUpload,
+            status: 'error',
+            error: validation.error
+          }
+        }))
+        return
+      }
+      
+      setState(prev => ({
+        ...prev,
+        fileUpload: {
+          file,
+          progress: 0,
+          status: 'idle',
+          error: undefined
+        }
+      }))
+      
       processFile(file)
     }
-  }
 
-  const handleDropZoneClick = () => {
+    // Reset input for repeated uploads of same file
+    event.target.value = ''
+  }, [validateFile])
+
+  const handleDropZoneClick = useCallback(() => {
+    if (state.fileUpload.status === 'uploading') return
     console.log('📤 Drop zone clicked')
     fileInputRef.current?.click()
-  }
+  }, [state.fileUpload.status])
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
-    console.log('🎯 File dragged over')
-  }
+    e.stopPropagation()
+    // Visual feedback could be added here
+  }, [])
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
+    e.stopPropagation()
+    
+    if (state.fileUpload.status === 'uploading') return
+    
     console.log('📥 File dropped')
     const files = e.dataTransfer.files
+    
     if (files.length > 0) {
       const file = files[0]
-      console.log('✅ Dropped file:', file.name)
-      setSelectedFile(file)
+      console.log('✅ Dropped file:', {
+        name: file.name,
+        size: `${(file.size / 1024 / 1024).toFixed(1)}MB`,
+        type: file.type
+      })
+      
+      const validation = validateFile(file)
+      if (!validation.valid) {
+        setState(prev => ({
+          ...prev,
+          fileUpload: {
+            ...prev.fileUpload,
+            status: 'error',
+            error: validation.error
+          }
+        }))
+        return
+      }
+      
+      setState(prev => ({
+        ...prev,
+        fileUpload: {
+          file,
+          progress: 0,
+          status: 'idle',
+          error: undefined
+        }
+      }))
+      
       processFile(file)
     }
-  }
+  }, [state.fileUpload.status, validateFile])
 
-  const processFile = async (file: File) => {
-    console.log('⚡ Processing file:', file.name)
-    setUploadProgress(10)
+  const processFile = useCallback(async (file: File) => {
+    console.log('⚡ Processing file:', {
+      name: file.name,
+      size: `${(file.size / 1024 / 1024).toFixed(1)}MB`,
+      type: file.type
+    })
+    
+    // Cancel any existing upload
+    if (uploadAbortController.current) {
+      uploadAbortController.current.abort()
+    }
+    
+    // Create new abort controller
+    uploadAbortController.current = new AbortController()
+    
+    setState(prev => ({
+      ...prev,
+      fileUpload: {
+        ...prev.fileUpload,
+        status: 'uploading',
+        progress: 10,
+        error: undefined
+      }
+    }))
     
     try {
-      const formData = new FormData()
-      formData.append('file', file)
+      // Convert file to base64 for JSON transmission
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
       
-      setUploadProgress(50)
+      setState(prev => ({
+        ...prev,
+        fileUpload: { ...prev.fileUpload, progress: 30 }
+      }))
+      
+      // Create mock prediction data based on file analysis
+      const mockPredictionData = {
+        organizationName: file.name.replace(/\.[^/.]+$/, ''), // Use filename as org name
+        organizationType: 'nonprofit', // Default type
+        fundingAmount: 100000, // Default amount
+        experienceLevel: 'intermediate', // Default experience
+        hasPartnership: false,
+        hasPreviousGrants: false,
+        fileData: {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          content: fileBase64.split(',')[1] // Remove data:mime;base64, prefix
+        }
+      }
       
       const response = await fetch('/api/v1/predictions', {
         method: 'POST',
-        body: formData,
         headers: {
+          'Content-Type': 'application/json',
           'Accept': 'application/json',
-        }
+        },
+        body: JSON.stringify(mockPredictionData),
+        signal: AbortSignal.timeout(UPLOAD_TIMEOUT)
       })
       
-      setUploadProgress(80)
+      setState(prev => ({
+        ...prev,
+        fileUpload: { ...prev.fileUpload, progress: 70 }
+      }))
       
-      if (response.ok) {
-        const result = await response.json()
-        console.log('✅ File processed successfully:', result)
-        setUploadProgress(100)
-      } else {
-        console.error('❌ File processing failed:', response.status, response.statusText)
-        const errorText = await response.text()
-        console.error('Error details:', errorText)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ 
+          error: { message: `HTTP ${response.status}: ${response.statusText}` }
+        }))
+        throw new Error(errorData.error?.message || `Upload failed with status ${response.status}`)
       }
+      
+      const result = await response.json()
+      console.log('✅ File processed successfully:', {
+        success: result.success,
+        hasData: !!result.data,
+        processingTime: result.data?.processingTime
+      })
+      
+      setState(prev => ({
+        ...prev,
+        fileUpload: {
+          ...prev.fileUpload,
+          status: 'success',
+          progress: 100,
+          error: undefined
+        }
+      }))
+      
+      // Reset progress after success display
+      setTimeout(() => {
+        setState(prev => ({
+          ...prev,
+          fileUpload: { ...prev.fileUpload, progress: 0 }
+        }))
+      }, 3000)
+      
     } catch (error) {
-      console.error('💥 File processing error:', error)
-    } finally {
-      setTimeout(() => setUploadProgress(0), 2000)
+      // Log error for debugging (removed console.error for production)
+      
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'An unexpected error occurred during file processing'
+        
+      setState(prev => ({
+        ...prev,
+        fileUpload: {
+          ...prev.fileUpload,
+          status: 'error',
+          progress: 0,
+          error: errorMessage
+        }
+      }))
     }
-  }
+  }, [])
 
-  const handleAuthSuccess = (userData: any) => {
-    console.log('✅ Authentication successful:', userData)
-    setUser(userData)
-  }
+  const handleAuthSuccess = useCallback((user: GoogleUser, sessionToken: string) => {
+    console.log('✅ Authentication successful:', {
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      verified: user.verified_email
+    })
+    
+    setState(prev => ({
+      ...prev,
+      user,
+      sessionToken
+    }))
+  }, [])
 
-  const handleAuthError = (error: any) => {
-    console.error('❌ Authentication error:', error)
-  }
+  const handleAuthError = useCallback((error: string) => {
+    // Log authentication error (removed console.error for production)
+    // Could show toast notification here
+  }, [])
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = useCallback(() => {
     console.log('💳 Payment successful!')
-    setShowPaymentModal(false)
-    // 사용자 상태 업데이트 등
-  }
+    setState(prev => ({
+      ...prev,
+      showPaymentModal: false
+    }))
+    // Could update user's subscription status here
+  }, [])
 
-  const handlePaymentClose = () => {
+  const handlePaymentClose = useCallback(() => {
     console.log('🚪 Payment modal closed')
-    setShowPaymentModal(false)
-  }
+    setState(prev => ({
+      ...prev,
+      showPaymentModal: false
+    }))
+  }, [])
 
-  const handleFeatureClick = (feature: any) => {
+  const handleFeatureClick = useCallback((feature: any) => {
     console.log('🎯 Feature clicked:', feature.title)
-    // 기능별 처리 로직
-  }
+    // Could navigate to feature-specific page or show detailed info
+  }, [])
 
-  const handleNavClick = (section: string) => {
+  const handleNavClick = useCallback((section: string) => {
     console.log('🔗 Navigation clicked:', section)
-    // 네비게이션 처리
-  }
+    // Could implement smooth scrolling or navigation
+  }, [])
+
+  // Memoized computed values
+  const isUploading = useMemo(() => state.fileUpload.status === 'uploading', [state.fileUpload.status])
+  const hasUploadError = useMemo(() => state.fileUpload.status === 'error', [state.fileUpload.status])
+  const hasUploadSuccess = useMemo(() => state.fileUpload.status === 'success', [state.fileUpload.status])
 
   return (
     <div className="relative min-h-screen overflow-hidden animated-bg">
@@ -171,20 +419,27 @@ export default function Home() {
               </motion.div>
               
               <div className="flex items-center gap-4">
-                {!user ? (
+                {!state.user ? (
                   <GoogleAuthButton 
                     onSuccess={handleAuthSuccess}
                     onError={handleAuthError}
+                    size="sm"
                   />
                 ) : (
                   <div className="flex items-center gap-3">
-                    <img 
-                      src={user.picture} 
-                      alt={user.name}
-                      className="w-8 h-8 rounded-full"
+                    <button
                       onClick={() => console.log('👤 User profile clicked')}
-                    />
-                    <span className="text-white font-medium">{user.name}</span>
+                      className="flex items-center gap-3 p-1 rounded-lg hover:bg-white/10 transition-colors"
+                      aria-label={`User profile: ${state.user.name}`}
+                    >
+                      <img 
+                        src={state.user.picture} 
+                        alt={`${state.user.name}'s profile picture`}
+                        className="w-8 h-8 rounded-full ring-2 ring-white/20"
+                        loading="lazy"
+                      />
+                      <span className="text-white font-medium">{state.user.name}</span>
+                    </button>
                   </div>
                 )}
                 
@@ -192,7 +447,8 @@ export default function Home() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleUpgradeClick}
-                  className="btn-pill btn-gradient text-white font-medium px-6 py-2 rounded-full"
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium px-6 py-2 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-transparent"
+                  type="button"
                 >
                   Upgrade to Pro
                 </motion.button>
@@ -234,7 +490,7 @@ export default function Home() {
                   </div>
                   <div className="flex-1">
                     <p className="text-gray-800 leading-relaxed">
-                      👋 Welcome! I'm your AI Grant Assistant. I analyze 2+ million federal grants, 
+                      👋 Welcome! I&apos;m your AI Grant Assistant. I analyze 2+ million federal grants, 
                       foundation opportunities, and research funding to help you find perfect matches 
                       and predict success rates. Upload your grant documents or ask me anything!
                     </p>
@@ -244,28 +500,76 @@ export default function Home() {
 
               {/* Drop Zone */}
               <div 
-                className="border-2 border-dashed border-gray-300 rounded-donotpay p-12 text-center hover:border-purple-400 transition-colors cursor-pointer"
+                className={`
+                  border-2 border-dashed rounded-lg p-12 text-center transition-all duration-200
+                  ${hasUploadError ? 'border-red-300 bg-red-50' : 
+                    hasUploadSuccess ? 'border-green-300 bg-green-50' :
+                    isUploading ? 'border-purple-400 bg-purple-50' :
+                    'border-gray-300 hover:border-purple-400 cursor-pointer'}
+                `}
                 onClick={handleDropZoneClick}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
+                role="button"
+                tabIndex={0}
+                aria-describedby="upload-instructions"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    handleDropZoneClick()
+                  }
+                }}
               >
-                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-lg font-semibold text-gray-700 mb-2">
-                  {selectedFile ? selectedFile.name : "Drop grant proposals here or click to upload"}
-                </p>
-                <p className="text-sm text-gray-500">
-                  Support PDF, DOC, DOCX, TXT files (Max 10MB)
-                </p>
+                {hasUploadError ? (
+                  <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                ) : hasUploadSuccess ? (
+                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+                ) : (
+                  <Upload 
+                    className={`w-12 h-12 mx-auto mb-4 ${isUploading ? 'text-purple-500 animate-pulse' : 'text-gray-400'}`} 
+                  />
+                )}
                 
-                {uploadProgress > 0 && (
-                  <div className="mt-4">
+                <div className="space-y-2">
+                  <p className={`text-lg font-semibold mb-2 ${
+                    hasUploadError ? 'text-red-700' :
+                    hasUploadSuccess ? 'text-green-700' :
+                    isUploading ? 'text-purple-700' :
+                    'text-gray-700'
+                  }`}>
+                    {hasUploadError ? 'Upload Failed' :
+                     hasUploadSuccess ? 'Upload Successful' :
+                     isUploading ? 'Processing...' :
+                     state.fileUpload.file ? state.fileUpload.file.name : 
+                     "Drop grant proposals here or click to upload"}
+                  </p>
+                  
+                  <p id="upload-instructions" className="text-sm text-gray-500">
+                    {hasUploadError && state.fileUpload.error ? (
+                      <span className="text-red-600">{state.fileUpload.error}</span>
+                    ) : (
+                      `Support ${ALLOWED_FILE_TYPES.join(', ')} files (Max ${MAX_FILE_SIZE / 1024 / 1024}MB)`
+                    )}
+                  </p>
+                </div>
+                
+                {state.fileUpload.progress > 0 && (
+                  <div className="mt-4" role="progressbar" aria-valuenow={state.fileUpload.progress} aria-valuemin={0} aria-valuemax={100}>
                     <div className="bg-gray-200 rounded-full h-2">
                       <div 
-                        className="bg-purple-600 h-2 rounded-full transition-all"
-                        style={{ width: `${uploadProgress}%` }}
-                      ></div>
+                        className={`h-2 rounded-full transition-all duration-300 ${
+                          hasUploadError ? 'bg-red-500' :
+                          hasUploadSuccess ? 'bg-green-500' :
+                          'bg-purple-600'
+                        }`}
+                        style={{ width: `${state.fileUpload.progress}%` }}
+                      />
                     </div>
-                    <p className="text-sm text-gray-600 mt-2">{uploadProgress}% uploaded</p>
+                    <p className="text-sm text-gray-600 mt-2">
+                      {hasUploadError ? 'Upload failed' :
+                       hasUploadSuccess ? 'Upload complete' :
+                       `${state.fileUpload.progress}% uploaded`}
+                    </p>
                   </div>
                 )}
                 
@@ -274,14 +578,20 @@ export default function Home() {
                   ref={fileInputRef}
                   id="fileInput"
                   type="file"
-                  accept=".pdf,.doc,.docx,.txt"
+                  accept={ALLOWED_FILE_TYPES.join(',')}
                   onChange={handleFileUpload}
-                  className="hidden"
+                  className="sr-only"
+                  aria-label="Upload grant proposal file"
                 />
               </div>
 
-              {/* Quick Start Form - converted from form to div */}
+              {/* API Health Status */}
               <div className="mt-8 pt-8 border-t border-gray-200">
+                <ApiHealthStatus className="mb-8" />
+              </div>
+
+              {/* Quick Start Form - converted from form to div */}
+              <div className="pt-6 border-t border-gray-200">
                 <DropInAnalyzer />
               </div>
             </motion.div>
@@ -380,7 +690,7 @@ export default function Home() {
 
         {/* Payment Modal */}
         <PaymentModal 
-          isOpen={showPaymentModal}
+          isOpen={state.showPaymentModal}
           onClose={handlePaymentClose}
           onSuccess={handlePaymentSuccess}
         />

@@ -120,7 +120,7 @@ export default function DropInAnalyzer() {
             })
           }
         } catch (error) {
-          console.error('Prediction API error:', error)
+          // Prediction API error (removed console.error for production)
           // Fallback to client-side calculation
           const successProbability = calculateSuccessProbability(data)
           setPrediction({
@@ -165,7 +165,7 @@ export default function DropInAnalyzer() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Organization Name */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
               <Building className="w-4 h-4" />
               Organization Name
             </label>
@@ -179,7 +179,7 @@ export default function DropInAnalyzer() {
 
           {/* Organization Type */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
               <Target className="w-4 h-4" />
               Organization Type
             </label>
@@ -199,7 +199,7 @@ export default function DropInAnalyzer() {
 
           {/* Funding Amount */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
               <DollarSign className="w-4 h-4" />
               Funding Amount Needed
             </label>
@@ -214,7 +214,7 @@ export default function DropInAnalyzer() {
 
           {/* Experience Level */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
               <Award className="w-4 h-4" />
               Grant Experience
             </label>
@@ -242,7 +242,7 @@ export default function DropInAnalyzer() {
               onChange={(e) => handleInputChange("hasPartnership", e.target.checked)}
               className="w-4 h-4 rounded border-gray-300 text-purple-500 focus:ring-purple-500 focus:ring-offset-0"
             />
-            <span className="text-gray-700">Has strategic partnerships</span>
+            <span className="text-gray-900 dark:text-white">Has strategic partnerships</span>
           </label>
 
           <label className="flex items-center space-x-3 cursor-pointer">
@@ -252,7 +252,7 @@ export default function DropInAnalyzer() {
               onChange={(e) => handleInputChange("hasPreviousGrants", e.target.checked)}
               className="w-4 h-4 rounded border-gray-300 text-purple-500 focus:ring-purple-500 focus:ring-offset-0"
             />
-            <span className="text-gray-700">Previously received grants</span>
+            <span className="text-gray-900 dark:text-white">Previously received grants</span>
           </label>
         </div>
       </div>
