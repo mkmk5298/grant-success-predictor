@@ -224,3 +224,119 @@ h1, h2, h3, h4, h5, h6 {
 .text-gray-600 { color: #4b5563 !important; }
 .text-gray-500 { color: #6b7280 !important; }
 .text-gray-400 { color: #9ca3af !important; }
+
+/* ======================================
+   CRITICAL UI/UX EMERGENCY FIXES 
+   Applied by L7 Distinguished Engineer
+   ====================================== */
+
+/* FIX 1: Dropdown Text Visibility */
+select, option, [role="listbox"], [role="option"] {
+  color: #000000 !important;
+  background: #ffffff !important;
+}
+
+.dropdown-content,
+.select-content,
+[role="listbox"] {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+/* Radix UI Select specific fixes */
+[data-radix-select-viewport] {
+  background: #ffffff !important;
+}
+
+[data-radix-select-item] {
+  color: #000000 !important;
+  background: #ffffff !important;
+}
+
+[data-radix-select-item]:hover {
+  background: #f3f4f6 !important;
+  color: #000000 !important;
+}
+
+[data-radix-select-content] {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+/* Native select elements */
+select {
+  color: #000000 !important;
+  background: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+}
+
+select option {
+  color: #000000 !important;
+  background: #ffffff !important;
+}
+
+select option:hover {
+  background: #f3f4f6 !important;
+}
+
+/* FIX 3: Checkbox/Toggle Label Visibility */
+label {
+  color: #374151 !important; /* gray-700 */
+}
+
+input[type="checkbox"] + label,
+input[type="radio"] + label,
+.switch-label,
+.checkbox-label {
+  color: #374151 !important;
+}
+
+/* Radix UI checkbox/switch components */
+[data-state="checked"] + span,
+[data-state="unchecked"] + span {
+  color: #374151 !important;
+}
+
+/* FIX 4: Hide System Status from Public */
+.system-status,
+.admin-panel,
+.debug-info,
+.api-health-status {
+  display: none !important;
+}
+
+/* FIX 5: Stripe Elements Text Visibility */
+.StripeElement {
+  background: #ffffff !important;
+}
+
+.StripeElement input {
+  color: #000000 !important;
+}
+
+.StripeElement--focus {
+  border-color: #6366f1 !important;
+}
+
+.StripeElement--invalid {
+  border-color: #ef4444 !important;
+}
+
+/* Additional form element fixes */
+input:not([type="checkbox"]):not([type="radio"]),
+textarea {
+  color: #000000 !important;
+  background: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+/* Ensure all form labels are visible */
+form label {
+  color: #374151 !important;
+  font-weight: 500;
+}

@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic'
 import { motion } from "framer-motion"
 import { Sparkles, TrendingUp, Target, Database, Brain, Rocket, Upload, AlertCircle, CheckCircle } from "lucide-react"
 import GoogleAuthButton from "@/components/GoogleAuthButton"
-import ApiHealthStatus from "@/components/ApiHealthStatus"
 
 // Dynamically import heavy components
 const DropInAnalyzer = dynamic(
@@ -558,10 +557,7 @@ export default function Home() {
                 />
               </div>
 
-              {/* API Health Status */}
-              <div className="mt-8 pt-8 border-t border-gray-200">
-                <ApiHealthStatus className="mb-8" />
-              </div>
+              {/* API Health Status - Removed from public view for security */}
 
               {/* Quick Start Form - converted from form to div */}
               <div className="pt-6 border-t border-gray-200">
