@@ -55,7 +55,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' *.stripe.com *.vercel-insights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' *.stripe.com api.openai.com api.anthropic.com vitals.vercel-insights.com; frame-src *.stripe.com;"
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://accounts.google.com https://apis.google.com https://js.stripe.com https://checkout.stripe.com *.vercel-insights.com; style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com; img-src 'self' data: https: blob: https://lh3.googleusercontent.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://accounts.google.com https://api.stripe.com https://*.googleapis.com https://*.vercel.app api.openai.com api.anthropic.com vitals.vercel-insights.com; frame-src 'self' https://accounts.google.com https://js.stripe.com https://checkout.stripe.com;"
           },
           {
             key: 'Permissions-Policy',
