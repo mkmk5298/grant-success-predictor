@@ -159,15 +159,49 @@ export default function DocumentUpload({
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'text/plain'
       ]
-      const maxSize = 50 * 1024 * 1024 // 50MB
+      const maxSize = 10 * 1024 * 1024 // 10MB (reduced for security)
+      const minSize = 100 // 100 bytes minimum
       
-      if (!validTypes.includes(file.type)) {
-        setError(`${file.name} is not a supported file type. Please upload PDF, DOC, DOCX, or TXT files.`)
+      // Check file size
+      if (file.size > maxSize) {
+        setError(`${file.name} is too large. Maximum file size is 10MB.`)
         return false
       }
       
-      if (file.size > maxSize) {
-        setError(`${file.name} is too large. Maximum file size is 50MB.`)
+      if (file.size < minSize) {
+        setError(`${file.name} is too small or empty. Please select a valid document.`)
+        return false
+      }
+      
+      // Check MIME type
+      if (!validTypes.includes(file.type)) {
+        setError(`${file.name} is not a supported file type. Please upload PDF, DOC, DOCX, or TXT files. Detected: ${file.type}`)
+        return false
+      }
+      
+      // Validate file name (prevent path traversal)
+      const fileName = file.name
+      if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+        setError(`${file.name} contains invalid characters in filename.`)
+        return false
+      }
+      
+      // Check file extension matches MIME type
+      const fileExtension = '.' + fileName.split('.').pop()?.toLowerCase()
+      const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt']
+      if (!allowedExtensions.includes(fileExtension)) {
+        setError(`${file.name} has an invalid file extension.`)
+        return false
+      }
+      
+      // Prevent suspicious file types
+      const suspiciousPatterns = [
+        /\.exe$/i, /\.bat$/i, /\.cmd$/i, /\.com$/i, /\.scr$/i, 
+        /\.pif$/i, /\.js$/i, /\.vbs$/i, /\.jar$/i, /\.php$/i
+      ]
+      
+      if (suspiciousPatterns.some(pattern => pattern.test(fileName))) {
+        setError(`${file.name} file type is not allowed for security reasons.`)
         return false
       }
       
@@ -205,7 +239,9 @@ export default function DocumentUpload({
         return
       }
     } catch (error) {
-      console.error('Failed to check upload limit:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to check upload limit:', error)
+      }
     }
 
     setUploading(true)
@@ -418,7 +454,7 @@ export default function DocumentUpload({
             </div>
             
             <div className="text-sm text-gray-500">
-              Supports PDF, DOC, DOCX, and TXT files up to 50MB each
+              Supports PDF, DOC, DOCX, and TXT files up to 10MB each
             </div>
           </div>
         </div>

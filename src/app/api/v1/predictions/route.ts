@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withApiHandler, createSuccess, createError, validateRequired, checkRateLimit } from '@/lib/api-handler'
+import { withApiHandler, createSuccess, createError, validateRequired, checkRateLimit, RATE_LIMITS } from '@/lib/api-handler'
 import { logger, createTimer } from '@/lib/logger'
 import { EnhancedPredictionService } from '@/lib/services/enhanced-prediction-service'
 import { DocumentProcessor } from '@/lib/services/document-processor'
+import { validateRequest, predictionRequestSchema } from '@/lib/validation/schemas'
 
 interface PredictionRequest {
   organizationName: string
@@ -339,31 +340,56 @@ export const POST = withApiHandler(async (request: NextRequest, { requestContext
     userAgent: requestContext.userAgent 
   })
   
-  // Rate limiting - more generous for predictions
+  // Rate limiting - stricter limits for prediction endpoint
   const clientIp = requestContext.ip || 'unknown'
-  if (!checkRateLimit(clientIp, 20, 60 * 1000)) { // 20 requests per minute
+  const rateLimitAllowed = await checkRateLimit({
+    identifier: `predictions:${clientIp}`,
+    limit: RATE_LIMITS.UPLOAD.limit, // 5 requests per minute
+    windowMs: RATE_LIMITS.UPLOAD.windowMs
+  })
+  
+  if (!rateLimitAllowed) {
     logger.warn('Rate limit exceeded for predictions', { ip: clientIp, requestId })
     throw createError.rateLimited('Too many prediction requests. Please try again later.')
   }
   
   let body: PredictionRequest
   try {
-    body = await request.json()
+    const rawBody = await request.json()
+    
+    // Comprehensive validation using Zod schema
+    const validatedBody = validateRequest(predictionRequestSchema, rawBody)
+    
+    // Ensure fundingAmount has a value (schema provides default if missing)
+    body = {
+      ...validatedBody,
+      fundingAmount: validatedBody.fundingAmount || 100000
+    } as PredictionRequest
+    
+    logger.debug('Request validation passed', {
+      requestId,
+      organizationName: body.organizationName,
+      organizationType: body.organizationType,
+      hasFileData: !!body.fileData
+    })
+    
   } catch (error) {
-    logger.warn('Invalid JSON in request body', { requestId, error })
+    logger.warn('Request validation failed', { requestId, error: error instanceof Error ? error.message : String(error) })
+    
+    if (error instanceof Error && error.message.includes('Validation failed:')) {
+      throw createError.validation(error.message)
+    }
+    
     throw createError.validation('Invalid request format')
   }
-  
-  // Validate required fields
-  validateRequired(body, ['organizationName', 'organizationType', 'experienceLevel'])
   
   const {
     organizationName,
     organizationType,
-    fundingAmount = 100000,
+    fundingAmount,
     experienceLevel,
-    hasPartnership = false,
-    hasPreviousGrants = false,
+    hasPartnership,
+    hasPreviousGrants,
     userId,
     sessionToken,
     fileData,
@@ -371,20 +397,6 @@ export const POST = withApiHandler(async (request: NextRequest, { requestContext
     userEmail,
     userName
   } = body
-  
-  // Validate enum values
-  if (!ORGANIZATION_TYPES.includes(organizationType as any)) {
-    throw createError.validation(`Invalid organization type. Must be one of: ${ORGANIZATION_TYPES.join(', ')}`)
-  }
-  
-  if (!EXPERIENCE_LEVELS.includes(experienceLevel as any)) {
-    throw createError.validation(`Invalid experience level. Must be one of: ${EXPERIENCE_LEVELS.join(', ')}`)
-  }
-  
-  // Validate funding amount
-  if (fundingAmount < 1000 || fundingAmount > 10000000) {
-    throw createError.validation('Funding amount must be between $1,000 and $10,000,000')
-  }
   
   logger.debug('Processing enhanced prediction request', {
     requestId,

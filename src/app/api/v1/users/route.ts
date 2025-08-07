@@ -51,7 +51,7 @@ export const GET = withApiHandler(async (request: NextRequest, { requestContext,
   
   // Rate limiting
   const clientIp = requestContext.ip || 'unknown'
-  if (!checkRateLimit(clientIp, 20, 60 * 1000)) { // 20 requests per minute
+  if (!checkRateLimit(clientIp)) { // Uses default rate limiting settings
     logger.warn('Rate limit exceeded for user operations', { ip: clientIp, requestId })
     throw createError.rateLimited('Too many user requests. Please try again later.')
   }
@@ -132,7 +132,7 @@ export const POST = withApiHandler(async (request: NextRequest, { requestContext
   
   // Rate limiting
   const clientIp = requestContext.ip || 'unknown'
-  if (!checkRateLimit(clientIp, 10, 60 * 1000)) { // 10 requests per minute
+  if (!checkRateLimit(clientIp)) { // Uses default rate limiting settings
     logger.warn('Rate limit exceeded for user creation', { ip: clientIp, requestId })
     throw createError.rateLimited('Too many user creation requests. Please try again later.')
   }
@@ -239,7 +239,7 @@ export const PUT = withApiHandler(async (request: NextRequest, { requestContext,
   
   // Rate limiting
   const clientIp = requestContext.ip || 'unknown'
-  if (!checkRateLimit(clientIp, 15, 60 * 1000)) { // 15 requests per minute
+  if (!checkRateLimit(clientIp)) { // Uses default rate limiting settings
     logger.warn('Rate limit exceeded for user updates', { ip: clientIp, requestId })
     throw createError.rateLimited('Too many user update requests. Please try again later.')
   }

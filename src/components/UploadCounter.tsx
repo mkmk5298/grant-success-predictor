@@ -110,18 +110,22 @@ export default function UploadCounter({
   
   return (
     <div className={`rounded-lg p-4 mb-6 ${
-      uploadCount === 0 ? 'bg-green-50 border-green-200' :
-      uploadCount === 1 ? 'bg-yellow-50 border-yellow-200' :
-      'bg-red-50 border-red-200'
-    } border`}>
+      uploadCount === 0 ? 'bg-gray-100 border-gray-300' :
+      uploadCount === 1 ? 'bg-yellow-900/20 border-yellow-500/30' :
+      'bg-red-900/20 border-red-500/30'
+    } border backdrop-blur-sm`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <Upload className={`w-5 h-5 ${
-            uploadCount === 0 ? 'text-green-600' :
-            uploadCount === 1 ? 'text-yellow-600' :
-            'text-red-600'
+            uploadCount === 0 ? 'text-gray-600' :
+            uploadCount === 1 ? 'text-yellow-400' :
+            'text-red-400'
           }`} />
-          <span className="font-semibold">
+          <span className={`font-semibold ${
+            uploadCount === 0 ? 'text-gray-500' :
+            uploadCount === 1 ? 'text-yellow-300' :
+            'text-red-300'
+          }`}>
             {uploadCount === 0 ? 'Try 2 FREE grant analyses!' :
              uploadCount === 1 ? '1 free analysis remaining' :
              'Free analyses used'}
@@ -129,9 +133,9 @@ export default function UploadCounter({
         </div>
         
         <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-          uploadCount === 0 ? 'bg-green-100 text-green-800' :
-          uploadCount === 1 ? 'bg-yellow-100 text-yellow-800' :
-          'bg-red-100 text-red-800'
+          uploadCount === 0 ? 'bg-gray-200 text-gray-600 border border-gray-300' :
+          uploadCount === 1 ? 'bg-yellow-900/30 text-yellow-300 border border-yellow-500/30' :
+          'bg-red-900/30 text-red-300 border border-red-500/30'
         }`}>
           {uploadCount >= 2 ? 
             'Upgrade to Pro!' : 
@@ -141,8 +145,8 @@ export default function UploadCounter({
       </div>
       
       {uploadCount >= 2 && (
-        <div className="mt-3 pt-3 border-t border-red-200">
-          <p className="text-sm text-red-700">
+        <div className="mt-3 pt-3 border-t border-red-500/30">
+          <p className="text-sm text-red-400">
             <strong>Subscribe for unlimited access!</strong> Get unlimited analyses, AI recommendations, and more for just $19/month.
           </p>
         </div>

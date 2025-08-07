@@ -41,7 +41,7 @@ export const POST = withApiHandler(async (request: NextRequest, { requestContext
   
   // Rate limiting
   const clientIp = requestContext.ip || 'unknown'
-  if (!checkRateLimit(clientIp, 10, 60 * 1000)) { // 10 requests per minute
+  if (!checkRateLimit(clientIp)) { // Uses default rate limiting settings
     logger.warn('Rate limit exceeded for application creation', { ip: clientIp, requestId })
     throw createError.rateLimited('Too many application requests. Please try again later.')
   }

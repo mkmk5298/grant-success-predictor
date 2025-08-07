@@ -11,22 +11,26 @@ export async function connectToDatabase() {
   }
 
   if (!process.env.DATABASE_URL) {
-    console.warn('DATABASE_URL not configured, using in-memory storage')
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('DATABASE_URL not configured, using in-memory storage')
+    }
     return null
   }
 
   try {
     db = new Client({
       connectionString: process.env.DATABASE_URL,
-      ssl: {
-        rejectUnauthorized: false
-      }
+      ssl: process.env.NODE_ENV === 'development' 
+        ? { rejectUnauthorized: false }
+        : { rejectUnauthorized: true }
     })
     
     await db.connect()
     // Database connected - log only in development
     if (process.env.NODE_ENV === 'development') {
-      console.log('Connected to CockroachDB successfully')
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Connected to CockroachDB successfully')
+      }
     }
     
     // Initialize tables if they don't exist
@@ -34,6 +38,7 @@ export async function connectToDatabase() {
     
     return db
   } catch (error) {
+    // Always log connection errors as they're critical
     console.error('Database connection failed:', error)
     return null
   }
@@ -191,9 +196,12 @@ async function initializeTables() {
 
     // Database tables initialized - log only in development
     if (process.env.NODE_ENV === 'development') {
-      console.log('Database tables initialized successfully')
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Database tables initialized successfully')
+      }
     }
   } catch (error) {
+    // Always log critical initialization errors
     console.error('Table initialization failed:', error)
   }
 }
@@ -221,7 +229,9 @@ export async function createUser(userData: {
     )
     return result.rows[0]
   } catch (error) {
-    console.error('Failed to create user:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to create user:', error)
+    }
     return null
   }
 }
@@ -237,7 +247,9 @@ export async function getUserByEmail(email: string) {
     )
     return result.rows[0] || null
   } catch (error) {
-    console.error('Failed to get user:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to get user:', error)
+    }
     return null
   }
 }
@@ -305,7 +317,9 @@ export async function updateUserProfile(email: string, updates: {
     const result = await database.query(query, values)
     return result.rows[0] || null
   } catch (error) {
-    console.error('Failed to update user profile:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to update user profile:', error)
+    }
     return null
   }
 }
@@ -328,7 +342,9 @@ export async function updateUserUsage(email: string, incrementAnalyses: boolean 
     
     return result.rows[0] || null
   } catch (error) {
-    console.error('Failed to update user usage:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to update user usage:', error)
+    }
     return null
   }
 }
@@ -374,7 +390,9 @@ export async function storePrediction(predictionData: {
     )
     return result.rows[0]
   } catch (error) {
-    console.error('Failed to store prediction:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to store prediction:', error)
+    }
     return null
   }
 }
@@ -407,7 +425,9 @@ export async function createSubscription(subscriptionData: {
     )
     return result.rows[0]
   } catch (error) {
-    console.error('Failed to create subscription:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to create subscription:', error)
+    }
     return null
   }
 }
@@ -438,7 +458,9 @@ export async function getAnalytics() {
       topOrgTypes: topOrgTypes.rows
     }
   } catch (error) {
-    console.error('Failed to get analytics:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to get analytics:', error)
+    }
     return null
   }
 }
@@ -462,7 +484,9 @@ export async function getUploadCount(userId?: string, sessionId?: string, ipAddr
     const result = await database.query(query, params)
     return result.rows[0]?.upload_count || 0
   } catch (error) {
-    console.error('Failed to get upload count:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to get upload count:', error)
+    }
     return 0
   }
 }
@@ -506,7 +530,9 @@ export async function incrementUploadCount(userId?: string, sessionId?: string, 
     return true
   } catch (error) {
     await database.query('ROLLBACK')
-    console.error('Failed to increment upload count:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to increment upload count:', error)
+    }
     return false
   }
 }
@@ -524,7 +550,9 @@ export async function hasActiveSubscription(userId: string) {
 
     return result.rows.length > 0
   } catch (error) {
-    console.error('Failed to check subscription:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to check subscription:', error)
+    }
     return false
   }
 }
@@ -539,7 +567,9 @@ export async function trackAnalyticsEvent(eventType: string, userId?: string, se
       VALUES ($1, $2, $3, $4)
     `, [userId, sessionId, eventType, eventData ? JSON.stringify(eventData) : null])
   } catch (error) {
-    console.error('Failed to track analytics event:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to track analytics event:', error)
+    }
   }
 }
 
@@ -550,7 +580,9 @@ export async function closeDatabase() {
     db = null
     // Database connection closed - log only in development
     if (process.env.NODE_ENV === 'development') {
-      console.log('Database connection closed')
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Database connection closed')
+      }
     }
   }
 }

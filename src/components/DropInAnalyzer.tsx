@@ -1,13 +1,14 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Building, DollarSign, TrendingUp, Award, Zap, Target } from "lucide-react"
+import { Building, DollarSign, TrendingUp, Award, Zap, Target, Lightbulb } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { calculateSuccessProbability, formatCurrency } from "@/lib/utils"
 import CountUp from "react-countup"
+import AIAdviceDisplay from "./AIAdviceDisplay"
 
 interface AnalysisData {
   organizationName: string
@@ -28,6 +29,19 @@ interface PredictionResult {
     deadline: string
     match: number
   }>
+  analysisId?: string
+}
+
+interface AIAdvice {
+  immediateActions?: string[]
+  strategicImprovements?: string[]
+  redFlags?: string[]
+  competitiveAdvantages?: string[]
+  budgetOptimization?: any
+  narrativeFramework?: any
+  confidence?: number
+  provider?: string
+  processingTime?: number
 }
 
 const organizationTypes = [
@@ -80,6 +94,45 @@ export default function DropInAnalyzer() {
 
   const [prediction, setPrediction] = useState<PredictionResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [aiAdvice, setAiAdvice] = useState<AIAdvice | null>(null)
+  const [isLoadingAdvice, setIsLoadingAdvice] = useState(false)
+
+  const generateAIAdvice = useCallback(async (analysisId: string, successProbability: number) => {
+    setIsLoadingAdvice(true)
+    setAiAdvice(null) // Clear previous advice
+    
+    try {
+      const response = await fetch('/api/v1/advice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          analysisId,
+          organizationName: data.organizationName,
+          organizationType: data.organizationType,
+          fundingAmount: data.fundingAmount,
+          experienceLevel: data.experienceLevel,
+          hasPartnership: data.hasPartnership,
+          hasPreviousGrants: data.hasPreviousGrants,
+          successProbability,
+          adviceType: 'comprehensive'
+        })
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success && result.data.advice) {
+          setAiAdvice(result.data.advice)
+        }
+      }
+    } catch (error) {
+      // AI advice failed - silently continue without advice
+      // Could add a retry mechanism or fallback advice here
+    } finally {
+      setIsLoadingAdvice(false)
+    }
+  }, [data.organizationName, data.organizationType, data.fundingAmount, data.experienceLevel, data.hasPartnership, data.hasPreviousGrants])
 
   // Real-time analysis when data changes
   useEffect(() => {
@@ -100,15 +153,21 @@ export default function DropInAnalyzer() {
           const result = await response.json()
           
           if (result.success) {
-            setPrediction({
+            const newPrediction = {
               successProbability: result.prediction.successProbability,
               recommendedActions: result.prediction.recommendations,
-              matchingGrants: mockGrants // Could be enhanced with real grant matching API
-            })
+              matchingGrants: mockGrants, // Could be enhanced with real grant matching API
+              analysisId: result.prediction.analysisId || `analysis-${Date.now()}`
+            }
+            setPrediction(newPrediction)
+            
+            // Generate AI advice after successful prediction
+            generateAIAdvice(newPrediction.analysisId, newPrediction.successProbability)
           } else {
             // Fallback to client-side calculation
             const successProbability = calculateSuccessProbability(data)
-            setPrediction({
+            const analysisId = `analysis-${Date.now()}`
+            const newPrediction = {
               successProbability,
               recommendedActions: [
                 "Strengthen your project narrative with specific impact metrics",
@@ -116,14 +175,20 @@ export default function DropInAnalyzer() {
                 "Prepare detailed budget justification documents",
                 "Gather letters of support from key stakeholders"
               ],
-              matchingGrants: mockGrants
-            })
+              matchingGrants: mockGrants,
+              analysisId
+            }
+            setPrediction(newPrediction)
+            
+            // Generate AI advice after fallback prediction
+            generateAIAdvice(analysisId, successProbability)
           }
         } catch (error) {
           // Prediction API error (removed console.error for production)
           // Fallback to client-side calculation
           const successProbability = calculateSuccessProbability(data)
-          setPrediction({
+          const analysisId = `analysis-${Date.now()}`
+          const newPrediction = {
             successProbability,
             recommendedActions: [
               "Strengthen your project narrative with specific impact metrics",
@@ -131,8 +196,13 @@ export default function DropInAnalyzer() {
               "Prepare detailed budget justification documents",
               "Gather letters of support from key stakeholders"
             ],
-            matchingGrants: mockGrants
-          })
+            matchingGrants: mockGrants,
+            analysisId
+          }
+          setPrediction(newPrediction)
+          
+          // Generate AI advice after error fallback
+          generateAIAdvice(analysisId, successProbability)
         } finally {
           setIsAnalyzing(false)
         }
@@ -141,18 +211,38 @@ export default function DropInAnalyzer() {
       const timer = setTimeout(fetchPrediction, 800)
       return () => clearTimeout(timer)
     }
-  }, [data])
+  }, [data, generateAIAdvice])
 
   const handleInputChange = (field: keyof AnalysisData, value: string | number | boolean) => {
     setData(prev => ({ ...prev, [field]: value }))
+    // Clear AI advice when form data changes
+    if (aiAdvice) {
+      setAiAdvice(null)
+    }
   }
 
-  const handleCreateAccount = () => {
-    // 계정 생성 로직
+  const handleCreateAccount = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    console.log('Create account clicked')
+    // TODO: Implement account creation modal or redirect
+    window.location.href = '/auth/signup'
   }
 
-  const handleContinueAsGuest = () => {
-    // 게스트 계속 로직
+  const handleContinueAsGuest = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    console.log('Continue as guest clicked')
+    // Store analysis in session storage for guest users
+    if (prediction) {
+      sessionStorage.setItem('guestAnalysis', JSON.stringify(prediction))
+    }
+    // TODO: Navigate to guest dashboard
+    window.location.href = '/dashboard/guest'
   }
 
   return (
@@ -296,6 +386,39 @@ export default function DropInAnalyzer() {
                   </div>
                 </motion.div>
 
+                {/* Recommendations */}
+                {prediction.recommendedActions && prediction.recommendedActions.length > 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-donotpay p-8"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Lightbulb className="w-6 h-6 text-purple-600" />
+                        <h3 className="text-xl font-bold text-gray-900">AI Recommendations</h3>
+                      </div>
+                      <div className="space-y-3">
+                        {prediction.recommendedActions.map((action, index) => (
+                          <motion.div
+                            key={index}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.1 + index * 0.05 }}
+                            className="flex items-start gap-3 p-3 bg-white/60 rounded-lg"
+                          >
+                            <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                              <span className="text-purple-600 font-bold text-sm">{index + 1}</span>
+                            </div>
+                            <p className="text-gray-700 leading-relaxed">{action}</p>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
                 {/* Matching Grants */}
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
@@ -337,11 +460,28 @@ export default function DropInAnalyzer() {
                   </div>
                 </motion.div>
 
+                {/* AI Advice Display */}
+                {(aiAdvice || isLoadingAdvice) && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                  >
+                    <AIAdviceDisplay
+                      advice={aiAdvice || {}}
+                      successProbability={prediction.successProbability}
+                      organizationName={data.organizationName}
+                      fundingAmount={data.fundingAmount}
+                      isLoading={isLoadingAdvice}
+                    />
+                  </motion.div>
+                )}
+
                 {/* Save Results CTA */}
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
+                  transition={{ delay: aiAdvice ? 0.6 : 0.4 }}
                   className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-donotpay p-8 text-center"
                 >
                   <div className="space-y-4">
@@ -351,14 +491,30 @@ export default function DropInAnalyzer() {
                     </p>
                     <div className="flex gap-4 justify-center">
                       <button 
+                        type="button"
                         onClick={handleCreateAccount}
-                        className="btn-pill btn-gradient text-white px-6 py-3 font-medium"
+                        className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full hover:from-purple-700 hover:to-pink-700 transition-colors font-medium"
+                        style={{ 
+                          pointerEvents: 'auto',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          zIndex: 50
+                        }}
                       >
                         Create Free Account
                       </button>
                       <button 
+                        type="button"
                         onClick={handleContinueAsGuest}
-                        className="btn-pill btn-outline text-gray-700 px-6 py-3 font-medium"
+                        className="px-6 py-3 bg-white text-gray-900 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors font-medium"
+                        style={{ 
+                          pointerEvents: 'auto',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          zIndex: 50,
+                          color: '#111827',
+                          backgroundColor: '#ffffff'
+                        }}
                       >
                         Continue as Guest
                       </button>

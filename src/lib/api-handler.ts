@@ -266,13 +266,102 @@ export function validateFile(
   }
 }
 
-// Rate limiting helper (simple in-memory implementation)
+// Enhanced rate limiting with database backing and Redis fallback
+import { connectToDatabase } from './database'
+
+// In-memory fallback for when database is unavailable
 const requestCounts = new Map<string, { count: number; resetTime: number }>()
 
-export function checkRateLimit(
+interface RateLimitOptions {
+  identifier: string
+  limit?: number
+  windowMs?: number
+  skipSuccessfulRequests?: boolean
+  skipFailedRequests?: boolean
+}
+
+export async function checkRateLimit({
+  identifier,
+  limit = 100,
+  windowMs = 60 * 1000, // 1 minute
+  skipSuccessfulRequests = false,
+  skipFailedRequests = false
+}: RateLimitOptions): Promise<boolean> {
+  const now = Date.now()
+  const windowStart = now - windowMs
+  
+  try {
+    // Try database-backed rate limiting first
+    const db = await connectToDatabase()
+    
+    if (db) {
+      // Create rate_limits table if it doesn't exist
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS rate_limits (
+          id VARCHAR(255) PRIMARY KEY,
+          count INTEGER DEFAULT 1,
+          window_start BIGINT NOT NULL,
+          reset_time BIGINT NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+      
+      // Clean up expired entries (older than 24 hours)
+      await db.query(
+        'DELETE FROM rate_limits WHERE reset_time < $1',
+        [now - (24 * 60 * 60 * 1000)]
+      )
+      
+      // Check current rate limit
+      const result = await db.query(
+        'SELECT count, reset_time FROM rate_limits WHERE id = $1',
+        [identifier]
+      )
+      
+      if (result.rows.length === 0 || now > result.rows[0].reset_time) {
+        // Create new rate limit entry
+        await db.query(`
+          INSERT INTO rate_limits (id, count, window_start, reset_time) 
+          VALUES ($1, 1, $2, $3)
+          ON CONFLICT (id) DO UPDATE SET
+            count = 1,
+            window_start = $2,
+            reset_time = $3,
+            updated_at = NOW()
+        `, [identifier, now, now + windowMs])
+        
+        return true
+      }
+      
+      const currentCount = result.rows[0].count
+      
+      if (currentCount >= limit) {
+        return false
+      }
+      
+      // Increment counter
+      await db.query(
+        'UPDATE rate_limits SET count = count + 1, updated_at = NOW() WHERE id = $1',
+        [identifier]
+      )
+      
+      return true
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Database rate limiting failed, falling back to in-memory:', error)
+    }
+  }
+  
+  // Fallback to in-memory rate limiting
+  return checkRateLimitInMemory(identifier, limit, windowMs)
+}
+
+function checkRateLimitInMemory(
   identifier: string,
-  limit: number = 100,
-  windowMs: number = 60 * 1000 // 1 minute
+  limit: number,
+  windowMs: number
 ): boolean {
   const now = Date.now()
   const userLimit = requestCounts.get(identifier)
@@ -293,7 +382,65 @@ export function checkRateLimit(
   return true
 }
 
-// Cleanup old rate limit entries
+// Get rate limit info for headers
+export async function getRateLimitInfo(identifier: string, windowMs: number = 60 * 1000): Promise<{
+  limit: number
+  remaining: number
+  reset: number
+}> {
+  const now = Date.now()
+  
+  try {
+    const db = await connectToDatabase()
+    
+    if (db) {
+      const result = await db.query(
+        'SELECT count, reset_time FROM rate_limits WHERE id = $1',
+        [identifier]
+      )
+      
+      if (result.rows.length === 0 || now > result.rows[0].reset_time) {
+        return { limit: 100, remaining: 99, reset: Math.floor((now + windowMs) / 1000) }
+      }
+      
+      const count = result.rows[0].count
+      const resetTime = result.rows[0].reset_time
+      
+      return {
+        limit: 100,
+        remaining: Math.max(0, 100 - count),
+        reset: Math.floor(resetTime / 1000)
+      }
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to get rate limit info:', error)
+    }
+  }
+  
+  // Fallback to in-memory
+  const userLimit = requestCounts.get(identifier)
+  if (!userLimit || now > userLimit.resetTime) {
+    return { limit: 100, remaining: 99, reset: Math.floor((now + windowMs) / 1000) }
+  }
+  
+  return {
+    limit: 100,
+    remaining: Math.max(0, 100 - userLimit.count),
+    reset: Math.floor(userLimit.resetTime / 1000)
+  }
+}
+
+// Different rate limits for different endpoints
+export const RATE_LIMITS = {
+  STRICT: { limit: 10, windowMs: 60 * 1000 }, // 10 per minute
+  STANDARD: { limit: 100, windowMs: 60 * 1000 }, // 100 per minute
+  LENIENT: { limit: 1000, windowMs: 60 * 1000 }, // 1000 per minute
+  UPLOAD: { limit: 5, windowMs: 60 * 1000 }, // 5 uploads per minute
+  AUTH: { limit: 5, windowMs: 15 * 60 * 1000 }, // 5 auth attempts per 15 minutes
+} as const
+
+// Cleanup old rate limit entries (in-memory fallback)
 setInterval(() => {
   const now = Date.now()
   for (const [key, value] of requestCounts.entries()) {

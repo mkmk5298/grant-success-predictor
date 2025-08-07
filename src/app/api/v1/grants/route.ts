@@ -203,7 +203,7 @@ export const GET = withApiHandler(async (request: NextRequest, { requestContext,
   
   // Rate limiting
   const clientIp = requestContext.ip || 'unknown'
-  if (!checkRateLimit(clientIp, 30, 60 * 1000)) { // 30 requests per minute
+  if (!checkRateLimit(clientIp)) { // Uses default rate limiting settings
     logger.warn('Rate limit exceeded for grants search', { ip: clientIp, requestId })
     throw createError.rateLimited('Too many search requests. Please try again later.')
   }
@@ -397,7 +397,7 @@ export const POST = withApiHandler(async (request: NextRequest, { requestContext
   
   // Rate limiting
   const clientIp = requestContext.ip || 'unknown'
-  if (!checkRateLimit(clientIp, 15, 60 * 1000)) { // 15 requests per minute
+  if (!checkRateLimit(clientIp)) { // Uses default rate limiting settings
     logger.warn('Rate limit exceeded for grant matching', { ip: clientIp, requestId })
     throw createError.rateLimited('Too many matching requests. Please try again later.')
   }

@@ -6,6 +6,8 @@ import { motion } from "framer-motion"
 import { Sparkles, TrendingUp, Target, Database, Brain, Rocket, Upload, AlertCircle, CheckCircle } from "lucide-react"
 import GoogleAuthButton from "@/components/GoogleAuthButton"
 import UploadCounter from "@/components/UploadCounter"
+import PredictionResults from "@/components/PredictionResults"
+import DocumentEnhancer from "@/components/DocumentEnhancer"
 
 // Dynamically import heavy components
 const DropInAnalyzer = dynamic(
@@ -39,6 +41,9 @@ interface AppState {
   sessionToken: string | null
   showPaymentModal: boolean
   fileUpload: FileUploadState
+  predictionResult: any | null
+  showEnhancer: boolean
+  uploadedFileData: any | null
 }
 
 // Feature cards - memoized
@@ -81,23 +86,23 @@ export default function Home() {
       progress: 0,
       status: 'idle',
       error: undefined
-    }
+    },
+    predictionResult: null,
+    showEnhancer: false,
+    uploadedFileData: null
   })
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadAbortController = useRef<AbortController | null>(null)
   
-  // Debug environment variables (production-ready logging)
+  // Environment validation (server-side only for production)
   useEffect(() => {
-    const envStatus = {
-      NEXT_PUBLIC_GOOGLE_CLIENT_ID: !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-      NODE_ENV: process.env.NODE_ENV,
-      NEXT_PUBLIC_APP_URL: !!process.env.NEXT_PUBLIC_APP_URL,
-      hasRequiredEnvVars: !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-    }
-    
-    if (!envStatus.hasRequiredEnvVars && process.env.NODE_ENV === 'development') {
-      console.warn('⚠️ Missing required environment variables for full functionality')
+    // Only check environment in development mode for debugging
+    if (process.env.NODE_ENV === 'development') {
+      const hasRequiredEnvVars = !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+      if (!hasRequiredEnvVars) {
+        console.warn('⚠️ Missing required environment variables for full functionality')
+      }
     }
 
     // Cleanup on unmount
@@ -108,7 +113,7 @@ export default function Home() {
     }
   }, [])
 
-  // File validation helper
+  // File validation helper with comprehensive security checks
   const validateFile = useCallback((file: File): { valid: boolean; error?: string } => {
     // Check file size
     if (file.size > MAX_FILE_SIZE) {
@@ -118,12 +123,57 @@ export default function Home() {
       }
     }
 
-    // Check file type
+    // Check minimum file size (prevent empty files)
+    if (file.size < 100) { // 100 bytes minimum
+      return {
+        valid: false,
+        error: 'File is too small or empty. Please select a valid document.'
+      }
+    }
+
+    // Check file extension
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase()
     if (!ALLOWED_FILE_TYPES.includes(fileExtension as any)) {
       return {
         valid: false,
         error: `File type not supported. Allowed types: ${ALLOWED_FILE_TYPES.join(', ')}`
+      }
+    }
+
+    // Check MIME type (more reliable than extension)
+    const allowedMimeTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain'
+    ]
+    
+    if (!allowedMimeTypes.includes(file.type)) {
+      return {
+        valid: false,
+        error: `File MIME type not supported. Detected type: ${file.type}`
+      }
+    }
+
+    // Validate file name (prevent path traversal and malicious names)
+    const fileName = file.name
+    if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+      return {
+        valid: false,
+        error: 'File name contains invalid characters'
+      }
+    }
+
+    // Check for suspicious file names
+    const suspiciousPatterns = [
+      /\.exe$/i, /\.bat$/i, /\.cmd$/i, /\.com$/i, /\.scr$/i, 
+      /\.pif$/i, /\.js$/i, /\.vbs$/i, /\.jar$/i, /\.php$/i
+    ]
+    
+    if (suspiciousPatterns.some(pattern => pattern.test(fileName))) {
+      return {
+        valid: false,
+        error: 'File type is not allowed for security reasons'
       }
     }
 
@@ -168,6 +218,7 @@ export default function Home() {
 
     // Reset input for repeated uploads of same file
     event.target.value = ''
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [validateFile])
 
   const handleDropZoneClick = useCallback(() => {
@@ -217,6 +268,7 @@ export default function Home() {
       
       processFile(file)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.fileUpload.status, validateFile])
 
   const processFile = useCallback(async (file: File) => {
@@ -293,6 +345,7 @@ export default function Home() {
       
       const result = await response.json()
       
+      // Store the prediction result and file data for enhancement
       setState(prev => ({
         ...prev,
         fileUpload: {
@@ -300,6 +353,13 @@ export default function Home() {
           status: 'success',
           progress: 100,
           error: undefined
+        },
+        predictionResult: result.data || result, // Store the prediction data
+        uploadedFileData: {
+          name: file.name,
+          content: fileBase64.split(',')[1], // Store base64 without prefix
+          type: file.type,
+          size: file.size
         }
       }))
       
@@ -307,7 +367,7 @@ export default function Home() {
       setTimeout(() => {
         setState(prev => ({
           ...prev,
-          fileUpload: { ...prev.fileUpload, progress: 0 }
+          fileUpload: { ...prev.fileUpload, progress: 0, status: 'idle' }
         }))
       }, 3000)
       
@@ -566,12 +626,33 @@ export default function Home() {
                 />
               </div>
 
+              {/* Prediction Results Display */}
+              {state.predictionResult && !state.showEnhancer && (
+                <PredictionResults 
+                  result={state.predictionResult}
+                  organizationName={state.fileUpload.file?.name.replace(/\.[^/.]+$/, '') || 'Your Organization'}
+                  fundingAmount={100000}
+                  onClose={() => setState(prev => ({ ...prev, predictionResult: null, fileUpload: { ...prev.fileUpload, status: 'idle' } }))}
+                  onEnhance={() => setState(prev => ({ ...prev, showEnhancer: true }))}
+                />
+              )}
+
+              {/* Document Enhancer */}
+              {state.showEnhancer && state.uploadedFileData && (
+                <DocumentEnhancer
+                  fileData={state.uploadedFileData}
+                  onClose={() => setState(prev => ({ ...prev, showEnhancer: false }))}
+                />
+              )}
+
               {/* API Health Status - Removed from public view for security */}
 
               {/* Quick Start Form - converted from form to div */}
-              <div className="pt-6 border-t border-gray-200">
-                <DropInAnalyzer />
-              </div>
+              {!state.predictionResult && (
+                <div className="pt-6 border-t border-gray-200">
+                  <DropInAnalyzer />
+                </div>
+              )}
             </motion.div>
           </div>
         </section>

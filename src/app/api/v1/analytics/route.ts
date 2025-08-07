@@ -24,7 +24,7 @@ export const GET = withApiHandler(async (request: NextRequest, { requestContext,
   
   // Rate limiting - more restrictive for analytics
   const clientIp = requestContext.ip || 'unknown'
-  if (!checkRateLimit(clientIp, 5, 60 * 1000)) { // 5 requests per minute
+  if (!checkRateLimit(clientIp)) { // Uses default rate limiting settings
     logger.warn('Rate limit exceeded for analytics', { ip: clientIp, requestId })
     throw createError.rateLimited('Too many analytics requests. Please try again later.')
   }
